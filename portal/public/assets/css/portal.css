@@ -1,0 +1,207 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --success: #16a34a;
+    --error: #dc2626;
+    --warning: #d97706;
+    --bg: #f1f5f9;
+    --card-bg: #ffffff;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --radius: 12px;
+    --shadow: 0 4px 24px rgba(0,0,0,.08), 0 1px 4px rgba(0,0,0,.05);
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.portal-wrapper {
+    width: 100%;
+    max-width: 420px;
+    padding: 16px;
+}
+
+.portal-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 32px 28px;
+}
+
+.portal-logo {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.wifi-icon {
+    font-size: 48px;
+    margin-bottom: 8px;
+}
+
+.portal-logo h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.portal-logo p {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 4px;
+}
+
+/* Tabs */
+.tab-nav {
+    display: flex;
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 4px;
+    margin-bottom: 24px;
+    gap: 4px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 8px 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .15s;
+}
+
+.tab-btn.active {
+    background: var(--card-bg);
+    color: var(--primary);
+    box-shadow: 0 1px 4px rgba(0,0,0,.1);
+}
+
+/* Forms */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 15px;
+    color: var(--text);
+    transition: border-color .15s;
+    outline: none;
+    background: #fff;
+}
+
+.form-group input:focus {
+    border-color: var(--primary);
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 11px 20px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all .15s;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: #fff;
+}
+
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+.btn-full { width: 100%; }
+
+.btn-link {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 4px 0;
+}
+
+.btn-link:disabled { color: var(--muted); cursor: not-allowed; text-decoration: none; }
+
+/* Alerts */
+.alert {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.alert-error { background: #fef2f2; color: var(--error); border: 1px solid #fecaca; }
+.alert-success { background: #f0fdf4; color: var(--success); border: 1px solid #bbf7d0; }
+
+/* Step info */
+.step-info {
+    text-align: center;
+    padding: 12px 0;
+}
+
+.step-icon { font-size: 48px; margin-bottom: 12px; }
+.step-info h3 { font-size: 18px; margin-bottom: 8px; }
+.step-info p { color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+.pending-info { padding: 16px 0; }
+
+.resend-area {
+    text-align: center;
+    margin-top: 12px;
+}
+
+/* Spinner */
+.spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    margin: 20px auto;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.muted { color: var(--muted); font-size: 13px; }
+.queue-pos { color: var(--muted); font-size: 13px; margin-top: 8px; }
+
+/* Footer */
+.portal-footer {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.portal-footer p { color: var(--muted); font-size: 13px; }

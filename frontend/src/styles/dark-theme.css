@@ -1,0 +1,82 @@
+/* WinBox-inspired dark theme */
+body.dark {
+    --bg:         #0f1117;
+    --bg-2:       #1a1d27;
+    --bg-3:       #252836;
+    --border:     #2d3147;
+    --text:       #e2e8f0;
+    --text-muted: #64748b;
+    --primary:    #3b82f6;
+    --primary-hover: #2563eb;
+    --success:    #22c55e;
+    --warning:    #f59e0b;
+    --error:      #ef4444;
+    --info:       #06b6d4;
+
+    background: var(--bg);
+    color: var(--text);
+}
+
+body.dark .sidebar {
+    background: var(--bg-2);
+    border-right: 1px solid var(--border);
+}
+
+body.dark .sidebar-header {
+    background: var(--bg-3);
+    border-bottom: 1px solid var(--border);
+}
+
+body.dark .nav-item { color: var(--text-muted); }
+body.dark .nav-item:hover { background: var(--bg-3); color: var(--text); }
+body.dark .nav-item.active { background: var(--primary); color: #fff; }
+
+body.dark .main-content { background: var(--bg); }
+
+body.dark .card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+}
+
+body.dark .data-table thead { background: var(--bg-3); color: var(--text-muted); }
+body.dark .data-table tbody tr { border-bottom: 1px solid var(--border); }
+body.dark .data-table tbody tr:hover { background: var(--bg-3); }
+
+body.dark .input {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+body.dark .input:focus { border-color: var(--primary); outline: none; }
+
+body.dark .modal { background: var(--bg-2); border: 1px solid var(--border); }
+body.dark .modal-header { border-bottom: 1px solid var(--border); }
+body.dark .modal-footer { border-top: 1px solid var(--border); }
+
+body.dark .stat-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+}
+
+body.dark .page-header { border-bottom: 1px solid var(--border); }
+
+body.dark .nav-divider { border-color: var(--border); }
+
+body.dark code, body.dark .code-block {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    color: var(--info);
+}
+
+body.dark .log-view { background: #0d0f16; color: #a3e635; }
+
+body.dark .login-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+}
+
+body.dark .tab-btn { color: var(--text-muted); background: transparent; border: none; }
+body.dark .tab-btn.active { color: var(--primary); border-bottom: 2px solid var(--primary); }
+
+body.dark .settings-tabs { border-bottom: 1px solid var(--border); }

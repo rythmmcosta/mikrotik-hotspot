@@ -1,0 +1,86 @@
+services:
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: hotspot_db
+      MYSQL_USER: hotspot
+      MYSQL_PASSWORD: hotspotpassword
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ../database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: mysql+asyncmy://hotspot:hotspotpassword@db:3306/hotspot_db
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-secret-key-change-in-production
+      SECRET_ENCRYPTION_KEY: dev-enc-key-change-in-production-32b
+      CORS_ORIGINS: http://localhost:5173
+      ENVIRONMENT: development
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  celery:
+    build: .
+    command: celery -A app.tasks.celery_app.celery worker --loglevel=info
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: mysql+asyncmy://hotspot:hotspotpassword@db:3306/hotspot_db
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-secret-key-change-in-production
+      SECRET_ENCRYPTION_KEY: dev-enc-key-change-in-production-32b
+    depends_on:
+      - db
+      - redis
+
+  celery-beat:
+    build: .
+    command: celery -A app.tasks.celery_app.celery beat --loglevel=info
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: mysql+asyncmy://hotspot:hotspotpassword@db:3306/hotspot_db
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-secret-key-change-in-production
+      SECRET_ENCRYPTION_KEY: dev-enc-key-change-in-production-32b
+    depends_on:
+      - celery
+
+  portal:
+    image: php:8.2-apache
+    volumes:
+      - ../portal/public:/var/www/html
+      - ../portal/src:/var/www/src
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html
+    ports:
+      - "9000:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:

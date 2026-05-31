@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Redirecting...</title></head>
+<body>
+<p>Redirecting to login portal...</p>
+<script>
+// MikroTik substitutes $(var) before serving this file
+var portalUrl = 'https://YOUR_PORTAL_URL';
+var params = new URLSearchParams({
+    mac: '$(mac)',
+    ip: '$(ip)',
+    username: '$(username)',
+    'link-login-only': '$(link-login-only)',
+    dst: '$(dst-url)'
+});
+window.location.href = portalUrl + '/?' + params.toString();
+</script>
+</body>
+</html>
