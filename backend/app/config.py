@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
     cors_origins: str = "http://localhost:5173"
     environment: str = "development"
+    syslog_port: int = 514
+    agent_metrics_retention_days: int = 7
 
     model_config = {"env_file": ".env", "case_sensitive": False}
 

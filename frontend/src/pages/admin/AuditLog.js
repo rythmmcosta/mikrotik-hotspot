@@ -1,4 +1,5 @@
 import { renderSidebar } from '../../components/Sidebar.js';
+import { renderTopbar, destroyTopbar } from '../../components/Topbar.js';
 import { DataTable } from '../../components/DataTable.js';
 import { api } from '../../api/client.js';
 
@@ -6,15 +7,21 @@ export async function renderAuditLog(container) {
     container.innerHTML = `
         <div class="app-layout">
             <div id="sidebar-mount"></div>
-            <main class="main-content">
-                <div class="page-header"><h2>Audit Log</h2></div>
-                <div id="audit-content">Loading...</div>
-                <div class="pagination" id="pagination"></div>
-            </main>
+            <div class="main-area">
+                <div id="topbar-mount"></div>
+                <main class="main-content">
+                    <div class="page-header"><h2>Audit Log</h2></div>
+                    <div class="card">
+                        <div id="audit-content">Loading...</div>
+                        <div class="pagination" id="pagination"></div>
+                    </div>
+                </main>
+            </div>
         </div>
     `;
 
     renderSidebar(container.querySelector('#sidebar-mount'));
+    renderTopbar(container.querySelector('#topbar-mount'));
 
     let page = 1;
 

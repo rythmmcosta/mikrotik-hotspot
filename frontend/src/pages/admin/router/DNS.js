@@ -1,4 +1,5 @@
 import { renderSidebar } from '../../../components/Sidebar.js';
+import { renderTopbar, destroyTopbar } from '../../../components/Topbar.js';
 import { DataTable } from '../../../components/DataTable.js';
 import { Modal } from '../../../components/Modal.js';
 import { success } from '../../../components/Toast.js';
@@ -8,17 +9,21 @@ export async function renderDNS(container) {
     container.innerHTML = `
         <div class="app-layout">
             <div id="sidebar-mount"></div>
-            <main class="main-content">
+            <div class="main-area">
+                <div id="topbar-mount"></div>
+                <main class="main-content">
                 <div class="page-header"><h2>DNS Management</h2>
                     <button class="btn btn-primary" id="add-dns-btn">+ Add Static Entry</button>
                 </div>
                 <div class="card"><div class="card-header"><h3>DNS Settings</h3></div><div id="dns-settings">Loading...</div></div>
                 <div class="card" style="margin-top:16px"><div class="card-header"><h3>Static DNS Entries</h3></div><div id="dns-content">Loading...</div></div>
-            </main>
+                </main>
+            </div>
         </div>
     `;
 
     renderSidebar(container.querySelector('#sidebar-mount'));
+    renderTopbar(container.querySelector('#topbar-mount'));
 
     async function load() {
         try {

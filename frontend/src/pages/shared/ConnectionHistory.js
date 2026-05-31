@@ -1,4 +1,5 @@
 import { renderSidebar } from '../../components/Sidebar.js';
+import { renderTopbar, destroyTopbar } from '../../components/Topbar.js';
 import { DataTable, StatusBadge } from '../../components/DataTable.js';
 import { api } from '../../api/client.js';
 
@@ -6,17 +7,21 @@ export async function renderConnectionHistory(container) {
     container.innerHTML = `
         <div class="app-layout">
             <div id="sidebar-mount"></div>
-            <main class="main-content">
-                <div class="page-header"><h2>Connection History</h2></div>
-                <div class="card">
-                    <div id="history-content">Loading...</div>
-                    <div class="pagination" id="pagination"></div>
-                </div>
-            </main>
+            <div class="main-area">
+                <div id="topbar-mount"></div>
+                <main class="main-content">
+                    <div class="page-header"><h2>Connection History</h2></div>
+                    <div class="card">
+                        <div id="history-content">Loading...</div>
+                        <div class="pagination" id="pagination"></div>
+                    </div>
+                </main>
+            </div>
         </div>
     `;
 
     renderSidebar(container.querySelector('#sidebar-mount'));
+    renderTopbar(container.querySelector('#topbar-mount'));
 
     let page = 1;
 
@@ -52,4 +57,7 @@ export async function renderConnectionHistory(container) {
     }
 
     load();
+
+    const cleanup = () => { destroyTopbar(); window.removeEventListener('hashchange', cleanup); };
+    window.addEventListener('hashchange', cleanup, { once: true });
 }

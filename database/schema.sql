@@ -175,3 +175,95 @@ CREATE TABLE IF NOT EXISTS audit_log (
     INDEX idx_resource (resource_type, resource_id),
     INDEX idx_created  (created_at)
 );
+
+CREATE TABLE IF NOT EXISTS assets (
+    id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name             VARCHAR(255) NOT NULL,
+    asset_type       ENUM('desktop','laptop','other') NOT NULL DEFAULT 'desktop',
+    mac_address      VARCHAR(17) NOT NULL UNIQUE,
+    ip_address       VARCHAR(45) NULL,
+    connection_type  ENUM('lan','wifi') NOT NULL DEFAULT 'wifi',
+    employee_id      INT UNSIGNED NULL,
+    serial_number    VARCHAR(128) NULL,
+    os_type          ENUM('windows','linux','macos') NULL,
+    hostname         VARCHAR(255) NULL,
+    status           ENUM('active','offline','blocked') NOT NULL DEFAULT 'offline',
+    agent_installed  BOOLEAN NOT NULL DEFAULT FALSE,
+    agent_version    VARCHAR(20) NULL,
+    agent_last_seen  DATETIME NULL,
+    agent_token_hash VARCHAR(255) NULL,
+    notes            TEXT NULL,
+    added_by         INT UNSIGNED NULL,
+    created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL,
+    FOREIGN KEY (added_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_mac    (mac_address),
+    INDEX idx_status (status),
+    INDEX idx_emp    (employee_id)
+);
+
+CREATE TABLE IF NOT EXISTS asset_metrics (
+    id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    asset_id            INT UNSIGNED NOT NULL,
+    collected_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    cpu_percent         FLOAT NULL,
+    cpu_per_core        JSON NULL,
+    ram_total           BIGINT UNSIGNED NULL,
+    ram_used            BIGINT UNSIGNED NULL,
+    ram_percent         FLOAT NULL,
+    disk_read_bytes     BIGINT UNSIGNED NULL,
+    disk_write_bytes    BIGINT UNSIGNED NULL,
+    net_bytes_sent      BIGINT UNSIGNED NULL,
+    net_bytes_recv      BIGINT UNSIGNED NULL,
+    net_packets_sent    BIGINT UNSIGNED NULL,
+    net_packets_recv    BIGINT UNSIGNED NULL,
+    active_connections  INT UNSIGNED NULL,
+    FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+    INDEX idx_asset_time (asset_id, collected_at)
+);
+
+CREATE TABLE IF NOT EXISTS browsing_log (
+    id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    hotspot_username VARCHAR(100) NULL,
+    user_type        ENUM('employee','guest','asset') NULL,
+    user_id          INT UNSIGNED NULL,
+    domain           VARCHAR(255) NOT NULL,
+    query_type       VARCHAR(10) NULL,
+    ip_address       VARCHAR(45) NULL,
+    mac_address      VARCHAR(17) NULL,
+    queried_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_user_time   (hotspot_username, queried_at),
+    INDEX idx_domain_time (domain, queried_at),
+    INDEX idx_mac         (mac_address),
+    INDEX idx_time        (queried_at)
+);
+
+CREATE TABLE IF NOT EXISTS usage_policies (
+    id                    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name                  VARCHAR(100) NOT NULL UNIQUE,
+    description           TEXT NULL,
+    scope                 ENUM('employee','guest','asset','global') NOT NULL DEFAULT 'global',
+    scope_id              INT UNSIGNED NULL,
+    is_active             BOOLEAN NOT NULL DEFAULT TRUE,
+    priority              TINYINT UNSIGNED NOT NULL DEFAULT 5,
+    mikrotik_address_list VARCHAR(100) NULL,
+    created_by            INT UNSIGNED NULL,
+    created_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_scope (scope)
+);
+
+CREATE TABLE IF NOT EXISTS policy_rules (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    policy_id   INT UNSIGNED NOT NULL,
+    rule_type   ENUM('domain','ip','category') NOT NULL,
+    value       VARCHAR(255) NOT NULL,
+    action      ENUM('block','allow') NOT NULL DEFAULT 'block',
+    description VARCHAR(255) NULL,
+    is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (policy_id) REFERENCES usage_policies(id) ON DELETE CASCADE,
+    INDEX idx_policy (policy_id)
+);

@@ -1,11 +1,14 @@
 import { renderSidebar } from '../../../components/Sidebar.js';
+import { renderTopbar, destroyTopbar } from '../../../components/Topbar.js';
 import { api } from '../../../api/client.js';
 
 export async function renderSystemResources(container) {
     container.innerHTML = `
         <div class="app-layout">
             <div id="sidebar-mount"></div>
-            <main class="main-content">
+            <div class="main-area">
+                <div id="topbar-mount"></div>
+                <main class="main-content">
                 <div class="page-header">
                     <h2>System Resources</h2>
                     <button class="btn btn-ghost" id="refresh-btn">↻ Refresh</button>
@@ -15,11 +18,13 @@ export async function renderSystemResources(container) {
                     <div class="card-header"><h3>System Log</h3></div>
                     <div id="logs-content" class="log-view">Loading...</div>
                 </div>
-            </main>
+                </main>
+            </div>
         </div>
     `;
 
     renderSidebar(container.querySelector('#sidebar-mount'));
+    renderTopbar(container.querySelector('#topbar-mount'));
 
     async function load() {
         try {

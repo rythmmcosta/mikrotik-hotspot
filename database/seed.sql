@@ -37,4 +37,6 @@ INSERT IGNORE INTO settings (category, key_name, value, is_encrypted, descriptio
 ('system', 'session_poll_interval_seconds', '30', FALSE, 'How often to poll MikroTik for active sessions'),
 ('system', 'guest_session_max_hours', '8', FALSE, 'Default guest session duration in hours (0 = no limit)'),
 ('system', 'allowed_email_domains', '', FALSE, 'Comma-separated allowed email domains (empty = all)'),
-('system', 'portal_url', 'http://localhost:9000', FALSE, 'Public URL of the captive portal');
+('system', 'portal_url', 'http://localhost:9000', FALSE, 'Public URL of the captive portal'),
+('system', 'syslog_port', '514', FALSE, 'UDP port for MikroTik syslog DNS capture'),
+('system', 'agent_metrics_retention_days', '7', FALSE, 'Days to retain agent metrics before purging');

@@ -1,4 +1,5 @@
 import { renderSidebar } from '../../../components/Sidebar.js';
+import { renderTopbar, destroyTopbar } from '../../../components/Topbar.js';
 import { DataTable, StatusBadge } from '../../../components/DataTable.js';
 import { success } from '../../../components/Toast.js';
 import { api } from '../../../api/client.js';
@@ -7,16 +8,20 @@ export async function renderHotspotServer(container) {
     container.innerHTML = `
         <div class="app-layout">
             <div id="sidebar-mount"></div>
-            <main class="main-content">
+            <div class="main-area">
+                <div id="topbar-mount"></div>
+                <main class="main-content">
                 <div class="page-header"><h2>Hotspot Server</h2><button class="btn btn-ghost" id="refresh-btn">↻ Refresh</button></div>
                 <div class="card"><div class="card-header"><h3>Active Sessions (from Router)</h3></div><div id="active-content">Loading...</div></div>
                 <div class="card" style="margin-top:16px"><div class="card-header"><h3>Hotspot Users</h3></div><div id="users-content">Loading...</div></div>
                 <div class="card" style="margin-top:16px"><div class="card-header"><h3>User Profiles</h3></div><div id="profiles-content">Loading...</div></div>
-            </main>
+                </main>
+            </div>
         </div>
     `;
 
     renderSidebar(container.querySelector('#sidebar-mount'));
+    renderTopbar(container.querySelector('#topbar-mount'));
 
     async function load() {
         try {

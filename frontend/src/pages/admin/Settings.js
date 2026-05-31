@@ -1,4 +1,5 @@
 import { renderSidebar } from '../../components/Sidebar.js';
+import { renderTopbar, destroyTopbar } from '../../components/Topbar.js';
 import { success, error } from '../../components/Toast.js';
 import { api } from '../../api/client.js';
 
@@ -14,17 +15,21 @@ export async function renderSettings(container) {
     container.innerHTML = `
         <div class="app-layout">
             <div id="sidebar-mount"></div>
-            <main class="main-content">
-                <div class="page-header"><h2>System Settings</h2></div>
-                <div class="settings-tabs">
-                    ${CATEGORIES.map((c, i) => `<button class="tab-btn ${i===0?'active':''}" data-cat="${c.key}">${c.icon} ${c.label}</button>`).join('')}
-                </div>
-                <div id="settings-content">Loading...</div>
-            </main>
+            <div class="main-area">
+                <div id="topbar-mount"></div>
+                <main class="main-content">
+                    <div class="page-header"><h2>System Settings</h2></div>
+                    <div class="settings-tabs">
+                        ${CATEGORIES.map((c, i) => `<button class="tab-btn ${i===0?'active':''}" data-cat="${c.key}">${c.icon} ${c.label}</button>`).join('')}
+                    </div>
+                    <div id="settings-content">Loading...</div>
+                </main>
+            </div>
         </div>
     `;
 
     renderSidebar(container.querySelector('#sidebar-mount'));
+    renderTopbar(container.querySelector('#topbar-mount'));
 
     let activeCategory = 'mikrotik';
 

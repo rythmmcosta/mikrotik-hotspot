@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import ForbiddenException, UnauthorizedException
 from app.core.security import decode_token
 from app.db.models.user import User
-from app.db.session import get_db
+from app.db.session import get_db, get_session_factory
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -50,3 +50,21 @@ def get_client_ip(request: Request) -> str:
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
+
+
+async def get_current_user_ws(token: str) -> User | None:
+    """Authenticate a WebSocket connection via token query param."""
+    if not token:
+        return None
+    try:
+        payload = decode_token(token)
+        if payload.get("type") != "access":
+            return None
+        user_id = payload.get("sub")
+    except JWTError:
+        return None
+
+    factory = get_session_factory()
+    async with factory() as db:
+        result = await db.execute(select(User).where(User.id == int(user_id), User.is_active == True))
+        return result.scalar_one_or_none()

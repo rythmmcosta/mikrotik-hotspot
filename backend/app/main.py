@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,9 +10,12 @@ from app.core.middleware import RequestIDMiddleware
 from app.db.session import get_engine
 from app.mikrotik import client as mt_client
 
+_syslog_task: asyncio.Task | None = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _syslog_task
     # Ensure DB tables exist (dev convenience; production uses Alembic)
     settings = get_settings()
     if settings.environment == "development":
@@ -35,7 +39,19 @@ async def lifespan(app: FastAPI):
             use_ssl = (await get_value(db, "mikrotik", "use_ssl") or "false").lower() == "true"
             mt_client.init_pool(host, port, username, password, use_ssl)
 
+    # Start syslog listener for DNS browsing capture
+    from app.core.syslog_listener import start_syslog_listener
+    syslog_port = getattr(settings, "syslog_port", 514)
+    _syslog_task = asyncio.create_task(start_syslog_listener(syslog_port))
+
     yield
+
+    if _syslog_task:
+        _syslog_task.cancel()
+        try:
+            await _syslog_task
+        except asyncio.CancelledError:
+            pass
 
     await mt_client.close_pool()
 

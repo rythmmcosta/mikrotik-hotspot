@@ -1,4 +1,5 @@
 import { renderSidebar } from '../../../components/Sidebar.js';
+import { renderTopbar, destroyTopbar } from '../../../components/Topbar.js';
 import { DataTable } from '../../../components/DataTable.js';
 import { success, error } from '../../../components/Toast.js';
 import { api } from '../../../api/client.js';
@@ -7,7 +8,9 @@ export async function renderFirewall(container) {
     container.innerHTML = `
         <div class="app-layout">
             <div id="sidebar-mount"></div>
-            <main class="main-content">
+            <div class="main-area">
+                <div id="topbar-mount"></div>
+                <main class="main-content">
                 <div class="page-header"><h2>Firewall Rules</h2>
                 <button class="btn btn-ghost" id="refresh-btn">↻ Refresh</button></div>
                 <div class="tab-nav">
@@ -16,11 +19,13 @@ export async function renderFirewall(container) {
                 </div>
                 <div id="filter-tab" class="tab-content">Loading...</div>
                 <div id="nat-tab" class="tab-content" style="display:none">Loading...</div>
-            </main>
+                </main>
+            </div>
         </div>
     `;
 
     renderSidebar(container.querySelector('#sidebar-mount'));
+    renderTopbar(container.querySelector('#topbar-mount'));
 
     container.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {

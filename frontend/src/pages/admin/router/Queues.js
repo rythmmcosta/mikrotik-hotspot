@@ -1,4 +1,5 @@
 import { renderSidebar } from '../../../components/Sidebar.js';
+import { renderTopbar, destroyTopbar } from '../../../components/Topbar.js';
 import { DataTable } from '../../../components/DataTable.js';
 import { Modal } from '../../../components/Modal.js';
 import { success } from '../../../components/Toast.js';
@@ -8,16 +9,20 @@ export async function renderQueues(container) {
     container.innerHTML = `
         <div class="app-layout">
             <div id="sidebar-mount"></div>
-            <main class="main-content">
+            <div class="main-area">
+                <div id="topbar-mount"></div>
+                <main class="main-content">
                 <div class="page-header"><h2>Queue Management</h2>
                     <button class="btn btn-primary" id="add-queue-btn">+ Add Queue</button>
                 </div>
                 <div id="queues-content">Loading...</div>
-            </main>
+                </main>
+            </div>
         </div>
     `;
 
     renderSidebar(container.querySelector('#sidebar-mount'));
+    renderTopbar(container.querySelector('#topbar-mount'));
 
     async function load() {
         try {

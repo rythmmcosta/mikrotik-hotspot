@@ -1,0 +1,12 @@
+[agent]
+; URL to backend API (no trailing slash)
+backend_url = https://YOUR_BACKEND_URL/api/v1
+
+; Asset ID from admin panel (Admin > Assets > generate token)
+asset_id = 0
+
+; Token from admin panel (generate after registering the asset)
+token = YOUR_TOKEN_HERE
+
+; Set to false if using self-signed certificate
+verify_ssl = true

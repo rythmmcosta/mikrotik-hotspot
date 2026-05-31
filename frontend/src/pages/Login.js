@@ -7,7 +7,7 @@ export function renderLogin(container) {
         <div class="login-wrapper">
             <div class="login-card">
                 <div class="login-header">
-                    <div class="login-logo">📶</div>
+                    <div class="login-logo" style="color:var(--primary,#4e73df)">◈</div>
                     <h1>Hotspot Manager</h1>
                     <p>Sign in to your account</p>
                 </div>

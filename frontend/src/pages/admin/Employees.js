@@ -1,4 +1,5 @@
 import { renderSidebar } from '../../components/Sidebar.js';
+import { renderTopbar, destroyTopbar } from '../../components/Topbar.js';
 import { DataTable, StatusBadge } from '../../components/DataTable.js';
 import { Modal } from '../../components/Modal.js';
 import { success, error } from '../../components/Toast.js';
@@ -8,25 +9,29 @@ export async function renderEmployees(container) {
     container.innerHTML = `
         <div class="app-layout">
             <div id="sidebar-mount"></div>
-            <main class="main-content">
-                <div class="page-header">
-                    <h2>Employees</h2>
-                    <button class="btn btn-primary" id="add-employee-btn">+ Add Employee</button>
-                </div>
-                <div class="toolbar">
-                    <select id="status-filter" class="input input-sm">
-                        <option value="">All Statuses</option>
-                        <option value="active">Active</option>
-                        <option value="suspended">Suspended</option>
-                    </select>
-                    <button class="btn btn-ghost" id="refresh-btn">↻ Refresh</button>
-                </div>
-                <div id="employees-content">Loading...</div>
-            </main>
+            <div class="main-area">
+                <div id="topbar-mount"></div>
+                <main class="main-content">
+                    <div class="page-header">
+                        <h2>Employees</h2>
+                        <button class="btn btn-primary" id="add-employee-btn">+ Add Employee</button>
+                    </div>
+                    <div class="toolbar">
+                        <select id="status-filter" class="input input-sm">
+                            <option value="">All Statuses</option>
+                            <option value="active">Active</option>
+                            <option value="suspended">Suspended</option>
+                        </select>
+                        <button class="btn btn-ghost" id="refresh-btn">↻ Refresh</button>
+                    </div>
+                    <div id="employees-content">Loading...</div>
+                </main>
+            </div>
         </div>
     `;
 
     renderSidebar(container.querySelector('#sidebar-mount'));
+    renderTopbar(container.querySelector('#topbar-mount'));
 
     async function load() {
         const status = container.querySelector('#status-filter').value;
