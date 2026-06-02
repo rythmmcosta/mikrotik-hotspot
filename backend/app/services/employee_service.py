@@ -67,6 +67,9 @@ async def create_employee(
     except RouterOSConnectionError:
         employee.mikrotik_synced = False
 
+    from app.services.notification_service import notify_admins
+    await notify_admins(db, f"👤 <b>New Employee Added</b>\n{full_name} ({email}) has been added by {created_by.username}.")
+
     return employee
 
 

@@ -1,6 +1,7 @@
 import { authStore } from './store/auth.js';
 import { renderLogin } from './pages/Login.js';
 import { renderDashboard } from './pages/Dashboard.js';
+import { renderProfile } from './pages/Profile.js';
 import { renderGuestQueue } from './pages/shared/GuestQueue.js';
 import { renderActiveConnections } from './pages/shared/ActiveConnections.js';
 import { renderConnectionHistory } from './pages/shared/ConnectionHistory.js';
@@ -22,6 +23,7 @@ import { renderQueues } from './pages/admin/router/Queues.js';
 const routes = {
     '/login':                renderLogin,
     '/dashboard':            renderDashboard,
+    '/profile':              renderProfile,
     '/guests/queue':         renderGuestQueue,
     '/connections/active':   renderActiveConnections,
     '/connections/history':  renderConnectionHistory,

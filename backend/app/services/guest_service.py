@@ -44,6 +44,10 @@ async def register_guest(db: AsyncSession, full_name: str, email: str, mobile: s
     await db.flush()
 
     await send_otp(db, guest.id, "guest_email", email)
+
+    from app.services.notification_service import notify_admins
+    await notify_admins(db, f"🔔 <b>New Guest Registration</b>\n{full_name} ({email}) is waiting for OTP verification.")
+
     return guest
 
 
@@ -151,6 +155,9 @@ async def approve_guest(
     if q_entry:
         await db.delete(q_entry)
 
+    from app.services.notification_service import notify_admins
+    await notify_admins(db, f"✅ <b>Guest Approved</b>\n{guest.full_name} ({guest.email}) has been approved and granted hotspot access.")
+
     return guest
 
 
@@ -169,6 +176,9 @@ async def reject_guest(db: AsyncSession, guest_id: int, rejecter: User, notes: s
     q_entry = q_result.scalar_one_or_none()
     if q_entry:
         await db.delete(q_entry)
+
+    from app.services.notification_service import notify_admins
+    await notify_admins(db, f"❌ <b>Guest Rejected</b>\n{guest.full_name} ({guest.email}) was rejected.{(' Reason: ' + notes) if notes else ''}")
 
     return guest
 

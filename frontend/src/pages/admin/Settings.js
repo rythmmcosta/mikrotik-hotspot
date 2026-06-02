@@ -4,11 +4,12 @@ import { success, error } from '../../components/Toast.js';
 import { api } from '../../api/client.js';
 
 const CATEGORIES = [
-    { key: 'mikrotik', label: 'MikroTik Router', icon: '🔌' },
-    { key: 'otp',      label: 'OTP Settings',   icon: '🔑' },
-    { key: 'smtp',     label: 'Email (SMTP)',    icon: '✉️' },
-    { key: 'sms',      label: 'SMS (Twilio)',    icon: '📱' },
-    { key: 'system',   label: 'System',          icon: '⚙️' },
+    { key: 'mikrotik', label: 'MikroTik Router', icon: 'tabler:router' },
+    { key: 'otp',      label: 'OTP Settings',    icon: 'tabler:key' },
+    { key: 'smtp',     label: 'Email (SMTP)',     icon: 'tabler:mail' },
+    { key: 'sms',      label: 'SMS (Twilio)',     icon: 'tabler:device-mobile' },
+    { key: 'telegram', label: 'Telegram Bot',     icon: 'tabler:brand-telegram' },
+    { key: 'system',   label: 'System',           icon: 'tabler:settings' },
 ];
 
 export async function renderSettings(container) {
@@ -20,7 +21,7 @@ export async function renderSettings(container) {
                 <main class="main-content">
                     <div class="page-header"><h2>System Settings</h2></div>
                     <div class="settings-tabs">
-                        ${CATEGORIES.map((c, i) => `<button class="tab-btn ${i===0?'active':''}" data-cat="${c.key}">${c.icon} ${c.label}</button>`).join('')}
+                        ${CATEGORIES.map((c, i) => `<button class="tab-btn ${i===0?'active':''}" data-cat="${c.key}"><iconify-icon icon="${c.icon}" width="13" style="vertical-align:middle;margin-right:4px"></iconify-icon>${c.label}</button>`).join('')}
                     </div>
                     <div id="settings-content">Loading...</div>
                 </main>
@@ -55,9 +56,10 @@ export async function renderSettings(container) {
             `).join('') + `
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Save ${CATEGORIES.find(c=>c.key===cat)?.label}</button>
-                    ${cat === 'mikrotik' ? `<button type="button" id="test-mikrotik" class="btn btn-ghost">Test Connection</button>` : ''}
-                    ${cat === 'smtp' ? `<button type="button" id="test-smtp" class="btn btn-ghost">Send Test Email</button>` : ''}
-                    ${cat === 'sms' ? `<button type="button" id="test-sms" class="btn btn-ghost">Send Test SMS</button>` : ''}
+                    ${cat === 'mikrotik'  ? `<button type="button" id="test-mikrotik" class="btn btn-ghost"><iconify-icon icon="tabler:plug-connected" width="13" style="vertical-align:middle;margin-right:4px"></iconify-icon>Test Connection</button>` : ''}
+                    ${cat === 'smtp'     ? `<button type="button" id="test-smtp" class="btn btn-ghost"><iconify-icon icon="tabler:send" width="13" style="vertical-align:middle;margin-right:4px"></iconify-icon>Send Test Email</button>` : ''}
+                    ${cat === 'sms'      ? `<button type="button" id="test-sms" class="btn btn-ghost"><iconify-icon icon="tabler:message" width="13" style="vertical-align:middle;margin-right:4px"></iconify-icon>Send Test SMS</button>` : ''}
+                    ${cat === 'telegram' ? `<button type="button" id="test-telegram" class="btn btn-ghost"><iconify-icon icon="tabler:brand-telegram" width="13" style="vertical-align:middle;margin-right:4px"></iconify-icon>Send Test Message</button>` : ''}
                 </div>
             `;
 
@@ -99,6 +101,13 @@ export async function renderSettings(container) {
                 if (!to) return;
                 try {
                     const res = await api.post(`/settings/sms/test?to_number=${encodeURIComponent(to)}`, {});
+                    res.success ? success(res.message) : error(res.message);
+                } catch (err) { error(err.message); }
+            });
+
+            form.querySelector('#test-telegram')?.addEventListener('click', async () => {
+                try {
+                    const res = await api.post('/settings/telegram/test', {});
                     res.success ? success(res.message) : error(res.message);
                 } catch (err) { error(err.message); }
             });

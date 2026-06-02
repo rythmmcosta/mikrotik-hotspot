@@ -1,5 +1,6 @@
 import logging
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.settings_service import get_value
@@ -52,3 +53,34 @@ async def send_sms(db: AsyncSession, to_number: str, message: str) -> bool:
     except Exception as exc:
         logger.error("SMS send failed to %s: %s", to_number, exc)
         return False
+
+
+async def send_telegram(db: AsyncSession, chat_id: str, message: str) -> bool:
+    """Send a message via Telegram Bot API."""
+    try:
+        token = await get_value(db, "telegram", "bot_token") or ""
+        if not token or not chat_id:
+            return False
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(url, json={"chat_id": chat_id, "text": message, "parse_mode": "HTML"})
+        if r.status_code != 200:
+            logger.error("Telegram send failed (chat %s): %s", chat_id, r.text)
+            return False
+        return True
+    except Exception as exc:
+        logger.error("Telegram send failed to chat %s: %s", chat_id, exc)
+        return False
+
+
+async def notify_admins(db: AsyncSession, message: str) -> None:
+    """Send message to the configured default Telegram chat if enabled."""
+    try:
+        enabled = (await get_value(db, "telegram", "enabled") or "false").lower() == "true"
+        if not enabled:
+            return
+        chat_id = await get_value(db, "telegram", "default_chat_id") or ""
+        if chat_id:
+            await send_telegram(db, chat_id, message)
+    except Exception as exc:
+        logger.debug("notify_admins skipped: %s", exc)

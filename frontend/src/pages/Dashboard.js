@@ -3,41 +3,51 @@ import { renderTopbar, destroyTopbar } from '../components/Topbar.js';
 import { createWSClient } from '../core/ws.js';
 import { api } from '../api/client.js';
 import { authStore } from '../store/auth.js';
-import { Chart, LineController, LineElement, PointElement, LinearScale, TimeScale, CategoryScale, Filler, Tooltip } from 'chart.js';
+import { Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip } from 'chart.js';
+import { GridStack } from 'gridstack';
 
-Chart.register(LineController, LineElement, PointElement, LinearScale, TimeScale, CategoryScale, Filler, Tooltip);
+Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Filler, Tooltip);
 
 const MAX_POINTS = 60;
+const LAYOUT_KEY = 'hotspot_dashboard_layout';
 
+// --- Gauge SVG (arc ring like MikroDash) ---
+function _gaugeRing(pct, color) {
+    const r = 32, cx = 40, cy = 40;
+    const circ = 2 * Math.PI * r;
+    const dash = (pct / 100) * circ;
+    return `
+        <svg width="80" height="80" viewBox="0 0 80 80">
+            <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(99,130,190,.12)" stroke-width="6"/>
+            <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="6"
+                    stroke-dasharray="${dash} ${circ}" stroke-linecap="round"
+                    transform="rotate(-90 ${cx} ${cy})" style="transition:stroke-dasharray .4s ease"/>
+        </svg>`;
+}
+
+// --- Rolling Chart ---
 function makeRollingChart(ctx, label, color) {
     const labels = Array(MAX_POINTS).fill('');
     const data = Array(MAX_POINTS).fill(null);
-
     return new Chart(ctx, {
         type: 'line',
         data: {
             labels,
             datasets: [{
-                label,
-                data,
+                label, data,
                 borderColor: color,
                 backgroundColor: color.replace(')', ', 0.08)').replace('rgb', 'rgba'),
-                borderWidth: 1.5,
-                pointRadius: 0,
-                fill: true,
-                tension: 0.3,
+                borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.3,
             }],
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,
+            responsive: true, maintainAspectRatio: false, animation: false,
             scales: {
                 x: { display: false },
                 y: {
                     min: 0,
-                    ticks: { font: { size: 11 }, color: '#718096', maxTicksLimit: 5 },
-                    grid: { color: 'rgba(0,0,0,.05)' },
+                    ticks: { font: { size: 10, family: 'JetBrains Mono' }, color: 'rgba(148,163,190,.5)', maxTicksLimit: 4 },
+                    grid: { color: 'rgba(99,130,190,.06)' },
                 },
             },
             plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
@@ -46,70 +56,155 @@ function makeRollingChart(ctx, label, color) {
 }
 
 function pushPoint(chart, value) {
-    chart.data.labels.push('');
-    chart.data.labels.shift();
-    chart.data.datasets[0].data.push(value);
-    chart.data.datasets[0].data.shift();
+    chart.data.labels.push(''); chart.data.labels.shift();
+    chart.data.datasets[0].data.push(value); chart.data.datasets[0].data.shift();
     chart.update('none');
 }
 
+// --- Card templates ---
+function _cardHtml(id, content) {
+    return `<div class="card" style="height:100%;display:flex;flex-direction:column;overflow:hidden">
+        <div id="${id}-inner" style="flex:1;overflow:hidden">${content}</div>
+    </div>`;
+}
+
+const CARDS = {
+    'cpu-gauge': {
+        title: 'CPU',
+        html: () => `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:6px">
+            <div id="gauge-cpu-ring">${_gaugeRing(0, '#38bdf8')}</div>
+            <div class="gauge-arc-wrap">
+                <div class="gauge-val" id="gauge-cpu-pct" style="color:var(--accent-rx)">—</div>
+                <div class="gauge-lbl">Router CPU</div>
+            </div>
+        </div>`,
+        w: 3, h: 3,
+    },
+    'ram-gauge': {
+        title: 'RAM',
+        html: () => `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:6px">
+            <div id="gauge-ram-ring">${_gaugeRing(0, '#34d399')}</div>
+            <div class="gauge-arc-wrap">
+                <div class="gauge-val" id="gauge-ram-pct" style="color:var(--accent-tx)">—</div>
+                <div class="gauge-lbl">Router RAM</div>
+            </div>
+        </div>`,
+        w: 3, h: 3,
+    },
+    'sessions-count': {
+        title: 'Sessions',
+        html: () => `<div class="stat-card" style="height:100%;border:none;box-shadow:none;justify-content:center">
+            <div class="stat-icon"><iconify-icon icon="line-md:wifi-loop" width="28" style="color:var(--primary)"></iconify-icon></div>
+            <div class="stat-value" id="stat-sessions">—</div>
+            <div class="stat-label">Active Sessions</div>
+        </div>`,
+        w: 3, h: 3,
+    },
+    'pending-count': {
+        title: 'Pending',
+        html: () => `<div class="stat-card" style="height:100%;border:none;box-shadow:none;justify-content:center">
+            <div class="stat-icon"><iconify-icon icon="line-md:account-alert" width="28" style="color:var(--accent-warn)"></iconify-icon></div>
+            <div class="stat-value" id="stat-pending">—</div>
+            <div class="stat-label">Pending Approvals</div>
+        </div>`,
+        w: 3, h: 3,
+    },
+    'sessions-today': {
+        title: 'Today',
+        html: () => `<div class="stat-card" style="height:100%;border:none;box-shadow:none;justify-content:center">
+            <div class="stat-icon"><iconify-icon icon="line-md:list-3" width="28" style="color:var(--accent-tx)"></iconify-icon></div>
+            <div class="stat-value" id="stat-today">—</div>
+            <div class="stat-label">Sessions Today</div>
+        </div>`,
+        w: 3, h: 3,
+    },
+    'asset-count': {
+        title: 'Assets',
+        html: () => `<div class="stat-card" style="height:100%;border:none;box-shadow:none;justify-content:center">
+            <div class="stat-icon"><iconify-icon icon="line-md:computer" width="28" style="color:var(--accent-rx)"></iconify-icon></div>
+            <div class="stat-value" id="stat-assets">—</div>
+            <div class="stat-label">Office Assets</div>
+        </div>`,
+        w: 3, h: 3,
+    },
+    'network-chart': {
+        title: 'Active Sessions',
+        html: () => `<div style="padding:10px;height:100%;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <span style="font-size:0.75rem;font-weight:700;color:var(--text-label);text-transform:uppercase;letter-spacing:.04em">Active Sessions</span>
+                <span id="conn-count" class="badge badge-blue">— active</span>
+            </div>
+            <div style="flex:1;min-height:0"><canvas id="chart-sessions"></canvas></div>
+        </div>`,
+        w: 6, h: 4,
+    },
+    'cpu-chart': {
+        title: 'Router CPU',
+        html: () => `<div style="padding:10px;height:100%;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <span style="font-size:0.75rem;font-weight:700;color:var(--text-label);text-transform:uppercase;letter-spacing:.04em">Router CPU Usage</span>
+                <span id="cpu-label" class="badge badge-gray">—</span>
+            </div>
+            <div style="flex:1;min-height:0"><canvas id="chart-cpu"></canvas></div>
+        </div>`,
+        w: 6, h: 4,
+    },
+    'queue-preview': {
+        title: 'Guest Queue',
+        html: () => `<div style="height:100%;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 4px">
+                <span style="font-size:0.75rem;font-weight:700;color:var(--text-label);text-transform:uppercase;letter-spacing:.04em">Guest Queue</span>
+                <a href="#/guests/queue" class="btn-link">View All</a>
+            </div>
+            <div id="queue-preview" style="flex:1;overflow-y:auto">
+                <div class="empty-state">Loading…</div>
+            </div>
+        </div>`,
+        w: 6, h: 4,
+    },
+    'active-preview': {
+        title: 'Active Connections',
+        html: () => `<div style="height:100%;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 4px">
+                <span style="font-size:0.75rem;font-weight:700;color:var(--text-label);text-transform:uppercase;letter-spacing:.04em">Active Connections</span>
+                <a href="#/connections/active" class="btn-link">View All</a>
+            </div>
+            <div id="active-preview" style="flex:1;overflow-y:auto">
+                <div class="empty-state">Loading…</div>
+            </div>
+        </div>`,
+        w: 6, h: 4,
+    },
+};
+
+const DEFAULT_LAYOUT = [
+    { id: 'cpu-gauge',       x: 0, y: 0, w: 3, h: 3 },
+    { id: 'ram-gauge',       x: 3, y: 0, w: 3, h: 3 },
+    { id: 'sessions-count',  x: 6, y: 0, w: 3, h: 3 },
+    { id: 'pending-count',   x: 9, y: 0, w: 3, h: 3 },
+    { id: 'network-chart',   x: 0, y: 3, w: 6, h: 4 },
+    { id: 'cpu-chart',       x: 6, y: 3, w: 6, h: 4 },
+    { id: 'queue-preview',   x: 0, y: 7, w: 6, h: 4 },
+    { id: 'active-preview',  x: 6, y: 7, w: 6, h: 4 },
+];
+
 export async function renderDashboard(container) {
-    let cpuChart, sessionsChart, wsConnections, wsMetrics;
+    let cpuChart, sessionsChart, wsConnections, wsMetrics, grid;
 
     container.innerHTML = `
         <div class="app-layout">
             <div id="sidebar-mount"></div>
             <div class="main-area">
                 <div id="topbar-mount"></div>
-                <main class="main-content">
-                    <div class="stats-grid" id="stats-grid">
-                        <div class="stat-card skeleton"></div>
-                        <div class="stat-card skeleton"></div>
-                        <div class="stat-card skeleton"></div>
-                        <div class="stat-card skeleton"></div>
+                <main class="main-content" id="dash-main">
+                    <div class="page-header">
+                        <h2>Dashboard</h2>
+                        <button class="btn btn-ghost" id="edit-dash-btn" style="font-size:0.78rem;display:flex;align-items:center;gap:6px">
+                            <iconify-icon icon="tabler:layout-grid-add" width="14"></iconify-icon>
+                            <span id="edit-dash-label">Edit Layout</span>
+                        </button>
                     </div>
-
-                    <div class="charts-grid">
-                        <div class="card">
-                            <div class="card-header">
-                                <span>Network Throughput (sessions/min)</span>
-                                <span id="conn-count" class="badge badge-blue">— active</span>
-                            </div>
-                            <div style="padding:12px">
-                                <div class="chart-container"><canvas id="chart-sessions"></canvas></div>
-                            </div>
-                        </div>
-                        <div class="card">
-                            <div class="card-header">
-                                <span>Router CPU Usage</span>
-                                <span id="cpu-label" class="badge badge-gray">—</span>
-                            </div>
-                            <div style="padding:12px">
-                                <div class="chart-container"><canvas id="chart-cpu"></canvas></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="dashboard-grid">
-                        <div class="card">
-                            <div class="card-header">
-                                <h3>Guest Queue</h3>
-                                <a href="#/guests/queue" class="btn-link">View All →</a>
-                            </div>
-                            <div id="queue-preview">
-                                <div style="padding:16px"><div class="skeleton" style="height:40px;margin-bottom:8px"></div><div class="skeleton" style="height:40px"></div></div>
-                            </div>
-                        </div>
-                        <div class="card">
-                            <div class="card-header">
-                                <h3>Active Connections</h3>
-                                <a href="#/connections/active" class="btn-link">View All →</a>
-                            </div>
-                            <div id="active-preview">
-                                <div style="padding:16px"><div class="skeleton" style="height:40px;margin-bottom:8px"></div><div class="skeleton" style="height:40px"></div></div>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="grid-stack" id="dash-grid"></div>
                 </main>
             </div>
         </div>
@@ -118,25 +213,73 @@ export async function renderDashboard(container) {
     renderSidebar(container.querySelector('#sidebar-mount'));
     renderTopbar(container.querySelector('#topbar-mount'));
 
-    // Init charts
-    cpuChart = makeRollingChart(
-        document.getElementById('chart-cpu').getContext('2d'),
-        'CPU %', 'rgb(78,115,223)'
-    );
-    sessionsChart = makeRollingChart(
-        document.getElementById('chart-sessions').getContext('2d'),
-        'Active Sessions', 'rgb(28,200,138)'
-    );
+    // Load saved layout or use default
+    let layout;
+    try { layout = JSON.parse(localStorage.getItem(LAYOUT_KEY)) || DEFAULT_LAYOUT; }
+    catch { layout = DEFAULT_LAYOUT; }
+
+    // Init GridStack
+    grid = GridStack.init({
+        column: 12,
+        cellHeight: 60,
+        animate: true,
+        resizable: { handles: 'se' },
+        draggable: { handle: '.card' },
+        float: false,
+        staticGrid: true, // start in view mode
+    }, '#dash-grid');
+
+    // Add cards from layout
+    layout.forEach(item => {
+        const card = CARDS[item.id];
+        if (!card) return;
+        grid.addWidget(`
+            <div class="grid-stack-item" gs-id="${item.id}" gs-x="${item.x}" gs-y="${item.y}" gs-w="${item.w}" gs-h="${item.h}">
+                <div class="grid-stack-item-content">
+                    <div class="card" style="height:100%;overflow:hidden">${card.html()}</div>
+                </div>
+            </div>
+        `);
+    });
+
+    // Edit mode toggle
+    let editMode = false;
+    const editBtn = container.querySelector('#edit-dash-btn');
+    const editLabel = container.querySelector('#edit-dash-label');
+    editBtn.addEventListener('click', () => {
+        editMode = !editMode;
+        grid.setStatic(!editMode);
+        editLabel.textContent = editMode ? 'Save Layout' : 'Edit Layout';
+        editBtn.querySelector('iconify-icon').setAttribute('icon', editMode ? 'tabler:check' : 'tabler:layout-grid-add');
+        container.querySelector('#dash-main').classList.toggle('edit-mode', editMode);
+
+        if (!editMode) {
+            // Save layout
+            const items = grid.save(false);
+            const serialized = items.map(i => ({ id: i.id, x: i.x, y: i.y, w: i.w, h: i.h }));
+            localStorage.setItem(LAYOUT_KEY, JSON.stringify(serialized));
+        }
+    });
+
+    // Init charts after DOM is ready
+    requestAnimationFrame(() => {
+        const cpuCtx = document.getElementById('chart-cpu');
+        const sessCtx = document.getElementById('chart-sessions');
+        if (cpuCtx) cpuChart = makeRollingChart(cpuCtx.getContext('2d'), 'CPU %', 'rgb(56,189,248)');
+        if (sessCtx) sessionsChart = makeRollingChart(sessCtx.getContext('2d'), 'Sessions', 'rgb(52,211,153)');
+    });
 
     // WebSocket: active connections
     wsConnections = createWSClient('connections');
     wsConnections.on('message', (data) => {
         if (data.type === 'sessions_update') {
             const count = data.count ?? 0;
-            pushPoint(sessionsChart, count);
+            if (sessionsChart) pushPoint(sessionsChart, count);
             const el = document.getElementById('conn-count');
             if (el) el.textContent = `${count} active`;
-            _refreshActivePreview(data.sessions);
+            const statEl = document.getElementById('stat-sessions');
+            if (statEl) statEl.textContent = count;
+            _renderActivePreview(data.sessions);
         }
     });
 
@@ -144,11 +287,26 @@ export async function renderDashboard(container) {
     wsMetrics = createWSClient('metrics');
     wsMetrics.on('metrics', (data) => {
         const cpu = data.cpu_percent ?? null;
-        pushPoint(cpuChart, cpu);
-        const el = document.getElementById('cpu-label');
-        if (el) {
-            el.textContent = cpu != null ? `${cpu.toFixed(1)}%` : '—';
-            el.className = `badge ${cpu > 80 ? 'badge-red' : cpu > 60 ? 'badge-yellow' : 'badge-green'}`;
+        const ram = data.ram_percent ?? null;
+
+        if (cpuChart && cpu != null) pushPoint(cpuChart, cpu);
+
+        // CPU gauge
+        if (cpu != null) {
+            const ring = document.getElementById('gauge-cpu-ring');
+            if (ring) ring.innerHTML = _gaugeRing(cpu, cpu > 80 ? '#f87171' : '#38bdf8');
+            const pct = document.getElementById('gauge-cpu-pct');
+            if (pct) { pct.textContent = `${cpu.toFixed(0)}%`; pct.style.color = cpu > 80 ? 'var(--accent-err)' : 'var(--accent-rx)'; }
+            const lbl = document.getElementById('cpu-label');
+            if (lbl) { lbl.textContent = `${cpu.toFixed(1)}%`; lbl.className = `badge ${cpu > 80 ? 'badge-red' : cpu > 60 ? 'badge-yellow' : 'badge-green'}`; }
+        }
+
+        // RAM gauge
+        if (ram != null) {
+            const ring = document.getElementById('gauge-ram-ring');
+            if (ring) ring.innerHTML = _gaugeRing(ram, ram > 85 ? '#f87171' : '#34d399');
+            const pct = document.getElementById('gauge-ram-pct');
+            if (pct) { pct.textContent = `${ram.toFixed(0)}%`; pct.style.color = ram > 85 ? 'var(--accent-err)' : 'var(--accent-tx)'; }
         }
     });
 
@@ -160,88 +318,56 @@ export async function renderDashboard(container) {
             api.get('/connections/active'),
         ]);
 
-        const assetsData = authStore.isAdmin() || authStore.getUser()?.role === 'operator'
-            ? await api.get('/assets').catch(() => [])
-            : [];
+        const assetsData = await api.get('/assets').catch(() => []);
 
-        document.querySelector('#stats-grid').innerHTML = `
-            <div class="stat-card">
-                <div class="stat-icon" style="color:var(--primary)">⬡</div>
-                <div class="stat-value">${stats.active_count}</div>
-                <div class="stat-label">Active Sessions</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon" style="color:var(--warning)">⏳</div>
-                <div class="stat-value">${queue.length}</div>
-                <div class="stat-label">Pending Approvals</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon" style="color:var(--success)">≡</div>
-                <div class="stat-value">${stats.total_sessions_today}</div>
-                <div class="stat-label">Sessions Today</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon" style="color:var(--info)">⊟</div>
-                <div class="stat-value">${assetsData.length}</div>
-                <div class="stat-label">Office Assets</div>
-            </div>
-        `;
+        _setText('stat-sessions', stats.active_count ?? 0);
+        _setText('stat-pending', queue.length ?? 0);
+        _setText('stat-today', stats.total_sessions_today ?? 0);
+        _setText('stat-assets', Array.isArray(assetsData) ? assetsData.length : 0);
 
         _renderQueuePreview(queue);
-        _refreshActivePreview(active);
+        _renderActivePreview(active);
+        if (sessionsChart) pushPoint(sessionsChart, stats.active_count ?? 0);
+    } catch { /* non-fatal */ }
 
-        // Seed sessions chart with current count
-        pushPoint(sessionsChart, stats.active_count);
-
-    } catch (err) {
-        document.querySelector('#stats-grid').innerHTML =
-            `<div class="alert alert-error col-span-4">${err.message}</div>`;
-    }
-
-    // Cleanup on route change
+    // Cleanup
     const cleanup = () => {
         if (cpuChart) cpuChart.destroy();
         if (sessionsChart) sessionsChart.destroy();
         if (wsConnections) wsConnections.close();
         if (wsMetrics) wsMetrics.close();
+        if (grid) grid.destroy();
         destroyTopbar();
         window.removeEventListener('hashchange', cleanup);
     };
     window.addEventListener('hashchange', cleanup, { once: true });
 }
 
+function _setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+}
+
 function _renderQueuePreview(queue) {
     const el = document.getElementById('queue-preview');
     if (!el) return;
-    if (!queue.length) {
-        el.innerHTML = '<p class="muted center" style="padding:20px">No pending approvals</p>';
-        return;
-    }
+    if (!queue.length) { el.innerHTML = '<p class="empty-state">No pending approvals</p>'; return; }
     el.innerHTML = queue.slice(0, 5).map(q => `
         <div class="list-item">
-            <div>
-                <strong>${q.full_name}</strong>
-                <small>${q.email}</small>
-            </div>
+            <div><strong>${q.full_name}</strong><small>${q.email}</small></div>
             <a href="#/guests/queue" class="badge badge-yellow">Pending</a>
         </div>
     `).join('');
 }
 
-function _refreshActivePreview(sessions) {
+function _renderActivePreview(sessions) {
     const el = document.getElementById('active-preview');
     if (!el) return;
     const list = Array.isArray(sessions) ? sessions : [];
-    if (!list.length) {
-        el.innerHTML = '<p class="muted center" style="padding:20px">No active connections</p>';
-        return;
-    }
+    if (!list.length) { el.innerHTML = '<p class="empty-state">No active connections</p>'; return; }
     el.innerHTML = list.slice(0, 5).map(c => `
         <div class="list-item">
-            <div>
-                <strong>${c.hotspot_username}</strong>
-                <small>${c.ip_address} · ${c.mac_address}</small>
-            </div>
+            <div><strong>${c.hotspot_username}</strong><small class="mono">${c.ip_address}</small></div>
             <span class="badge badge-green">${c.user_type}</span>
         </div>
     `).join('');

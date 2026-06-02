@@ -39,4 +39,10 @@ INSERT IGNORE INTO settings (category, key_name, value, is_encrypted, descriptio
 ('system', 'allowed_email_domains', '', FALSE, 'Comma-separated allowed email domains (empty = all)'),
 ('system', 'portal_url', 'http://localhost:9000', FALSE, 'Public URL of the captive portal'),
 ('system', 'syslog_port', '514', FALSE, 'UDP port for MikroTik syslog DNS capture'),
-('system', 'agent_metrics_retention_days', '7', FALSE, 'Days to retain agent metrics before purging');
+('system', 'agent_metrics_retention_days', '7', FALSE, 'Days to retain agent metrics before purging'),
+('telegram', 'enabled', 'false', FALSE, 'Enable Telegram notifications'),
+('telegram', 'bot_token', '', TRUE, 'Telegram Bot API Token (from @BotFather)'),
+('telegram', 'default_chat_id', '', FALSE, 'Default channel or group chat ID for system alerts'),
+('telegram', 'notify_guest_register', 'true', FALSE, 'Alert admins on new guest registration'),
+('telegram', 'notify_guest_approved', 'true', FALSE, 'Alert admins when a guest is approved'),
+('telegram', 'notify_employee_created', 'false', FALSE, 'Alert admins when a new employee is added');

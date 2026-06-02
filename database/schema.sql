@@ -5,15 +5,19 @@ CREATE DATABASE IF NOT EXISTS hotspot_db CHARACTER SET utf8mb4 COLLATE utf8mb4_u
 USE hotspot_db;
 
 CREATE TABLE IF NOT EXISTS users (
-    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    username      VARCHAR(64) NOT NULL UNIQUE,
-    email         VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    role          ENUM('admin','operator') NOT NULL DEFAULT 'operator',
-    is_active     BOOLEAN NOT NULL DEFAULT TRUE,
-    last_login_at DATETIME NULL,
-    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    username         VARCHAR(64) NOT NULL UNIQUE,
+    email            VARCHAR(255) NOT NULL UNIQUE,
+    password_hash    VARCHAR(255) NOT NULL,
+    role             ENUM('admin','operator') NOT NULL DEFAULT 'operator',
+    is_active        BOOLEAN NOT NULL DEFAULT TRUE,
+    full_name        VARCHAR(255) NULL,
+    avatar_url       VARCHAR(512) NULL,
+    mobile           VARCHAR(20) NULL,
+    telegram_chat_id VARCHAR(64) NULL,
+    last_login_at    DATETIME NULL,
+    created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_email (email),
     INDEX idx_role  (role)
 );

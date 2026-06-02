@@ -33,6 +33,8 @@ async def hotspot_event(body: HotspotEvent, db: AsyncSession = Depends(get_db)):
             mac_address=body.mac,
             ip_address=body.ip,
         )
+        from app.services.notification_service import notify_admins
+        await notify_admins(db, f"📶 <b>Hotspot Login</b>\n{body.user} ({body.user_type}) connected from {body.ip}")
     elif body.type == "logout":
         await connection_service.record_logout(
             db=db,

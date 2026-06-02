@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.dependencies import require_admin
+from app.dependencies import get_current_user, require_admin
 from app.db.models.user import User
 from app.schemas.settings import SettingsCategoryResponse, SettingsUpdateRequest, TestConnectionResponse, SettingItem
 from app.services import settings_service
@@ -90,3 +90,32 @@ async def test_sms(
     from app.services.notification_service import send_sms
     ok = await send_sms(db, to_number, "SMS configuration test from Hotspot Manager.")
     return {"success": ok, "message": "SMS sent" if ok else "Failed to send SMS"}
+
+
+@router.post("/telegram/test", response_model=TestConnectionResponse)
+async def test_telegram(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Test Telegram by sending to the configured default_chat_id."""
+    from app.services.notification_service import send_telegram
+    from app.services.settings_service import get_value
+    chat_id = await get_value(db, "telegram", "default_chat_id") or ""
+    if not chat_id:
+        return {"success": False, "message": "No default chat ID configured"}
+    ok = await send_telegram(db, chat_id, "✅ <b>HotspotMgr</b>\nTelegram notification test successful.")
+    return {"success": ok, "message": "Message sent" if ok else "Failed to send Telegram message"}
+
+
+@router.post("/telegram/test-me", response_model=TestConnectionResponse)
+async def test_telegram_me(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Test Telegram by sending to the current user's personal telegram_chat_id."""
+    from app.services.notification_service import send_telegram
+    chat_id = current_user.telegram_chat_id or ""
+    if not chat_id:
+        return {"success": False, "message": "No Telegram chat ID in your profile"}
+    ok = await send_telegram(db, chat_id, f"✅ <b>HotspotMgr</b>\nHello {current_user.username}! Your Telegram notifications are working.")
+    return {"success": ok, "message": "Message sent to your Telegram" if ok else "Failed to send Telegram message"}
