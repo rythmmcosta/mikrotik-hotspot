@@ -13,6 +13,7 @@ celery = Celery(
         "app.tasks.otp_tasks",
         "app.tasks.connection_tasks",
         "app.tasks.sync_tasks",
+        "app.tasks.cleanup_tasks",
     ],
 )
 
@@ -37,6 +38,10 @@ celery.conf.update(
         "sync-hotspot-users": {
             "task": "app.tasks.sync_tasks.sync_hotspot_users",
             "schedule": crontab(minute="*/30"),
+        },
+        "cleanup-old-logs": {
+            "task": "app.tasks.cleanup_tasks.cleanup_old_logs",
+            "schedule": crontab(hour=3, minute=0),
         },
     },
 )

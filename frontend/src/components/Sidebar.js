@@ -11,6 +11,10 @@ const ICONS = {
     browsing:    'tabler:globe',
     policies:    'tabler:shield-check',
     employees:   'tabler:users',
+    bandwidth:   'tabler:antenna-bars-5',
+    analytics:   'tabler:chart-bar',
+    vouchers:    'tabler:ticket',
+    health:      'tabler:heart-rate-monitor',
     settings:    'tabler:settings',
     audit:       'tabler:file-analytics',
     interfaces:  'tabler:cpu',
@@ -55,9 +59,13 @@ const NAV_SECTIONS = [
     {
         title: 'Management',
         items: [
-            { path: '/employees', icon: ICONS.employees, label: 'Employees', roles: ['admin'] },
-            { path: '/settings',  icon: ICONS.settings,  label: 'Settings',  roles: ['admin'] },
-            { path: '/audit',     icon: ICONS.audit,     label: 'Audit Log', roles: ['admin'] },
+            { path: '/employees',  icon: ICONS.employees,  label: 'Employees',  roles: ['admin'] },
+            { path: '/bandwidth',  icon: ICONS.bandwidth,  label: 'Bandwidth',  roles: ['admin'] },
+            { path: '/vouchers',   icon: ICONS.vouchers,   label: 'Vouchers',   roles: ['admin'] },
+            { path: '/analytics',  icon: ICONS.analytics,  label: 'Analytics',  roles: ['admin'] },
+            { path: '/settings',   icon: ICONS.settings,   label: 'Settings',   roles: ['admin'] },
+            { path: '/audit',      icon: ICONS.audit,      label: 'Audit Log',  roles: ['admin'] },
+            { path: '/system/health', icon: ICONS.health,  label: 'Sys Health', roles: ['admin'] },
         ],
     },
     {

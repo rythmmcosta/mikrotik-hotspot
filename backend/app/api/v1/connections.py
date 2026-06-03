@@ -1,9 +1,14 @@
+from datetime import timedelta, timezone
+import datetime as _datetime
+
 from fastapi import APIRouter, Depends, Query, Request
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.dependencies import get_client_ip, require_operator_or_admin
 from app.db.models.user import User
+from app.db.models.connection import Connection as Conn
 from app.schemas.connection import ConnectionListResponse, ConnectionResponse, ConnectionStatsResponse
 from app.services import audit_service, connection_service
 
@@ -51,3 +56,25 @@ async def terminate(
     await audit_service.log_action(db, "connection.terminated", current_user, "connection", connection_id,
                                    None, get_client_ip(request))
     return conn
+
+
+@router.get("/bandwidth-usage")
+async def bandwidth_usage(
+    days: int = Query(1, ge=1, le=30),
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_operator_or_admin),
+):
+    since = _datetime.datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+    result = await db.execute(
+        select(
+            Conn.hotspot_username,
+            func.sum(Conn.bytes_in).label("bytes_in"),
+            func.sum(Conn.bytes_out).label("bytes_out"),
+        )
+        .where(Conn.connected_at >= since)
+        .group_by(Conn.hotspot_username)
+        .order_by(func.sum(Conn.bytes_in + Conn.bytes_out).desc())
+        .limit(limit)
+    )
+    return [{"username": r.hotspot_username, "bytes_in": r.bytes_in or 0, "bytes_out": r.bytes_out or 0} for r in result]

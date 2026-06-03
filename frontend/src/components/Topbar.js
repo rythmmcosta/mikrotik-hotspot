@@ -1,6 +1,7 @@
 import { createWSClient } from '../core/ws.js';
 import { authStore } from '../store/auth.js';
 import { api } from '../api/client.js';
+import { success } from './Toast.js';
 
 const PAGE_TITLES = {
     '/dashboard':           'Dashboard',
@@ -24,7 +25,10 @@ const PAGE_TITLES = {
 };
 
 let _wsClient = null;
+let _queueWsClient = null;
+let _pendingQueueCount = 0;
 let _topbarEl = null;
+let _hashChangeHandler = null;
 
 function _icon(name, size = 18) {
     return `<iconify-icon icon="${name}" width="${size}" height="${size}"></iconify-icon>`;
@@ -91,15 +95,25 @@ export function renderTopbar(container) {
     notifBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         notifPanel.classList.toggle('open');
-        if (notifPanel.classList.contains('open')) _loadNotifications();
+        if (notifPanel.classList.contains('open')) {
+            _loadNotifications();
+            _resetQueueBadge();
+        }
     });
     document.addEventListener('click', () => notifPanel?.classList.remove('open'));
 
-    // Update title on hash change
-    window.addEventListener('hashchange', _updateTitle);
+    // Reset badge when navigating to guest queue
+    _hashChangeHandler = () => {
+        _updateTitle();
+        if (window.location.hash === '#/guests/queue') _resetQueueBadge();
+    };
+    window.addEventListener('hashchange', _hashChangeHandler);
 
     // Connect to metrics WebSocket for router stats
     _connectMetrics();
+
+    // Connect to queue WebSocket for live guest notifications
+    _connectQueue();
 
     return topbar;
 }
@@ -190,8 +204,32 @@ function _fmt(bps) {
     return `${bps}`;
 }
 
+function _connectQueue() {
+    if (_queueWsClient) _queueWsClient.close();
+    _queueWsClient = createWSClient('queue');
+    _queueWsClient.on('new_guest', (msg) => {
+        const data = msg.data || msg;
+        _pendingQueueCount++;
+        const badge = document.getElementById('notif-badge');
+        if (badge) {
+            badge.textContent = _pendingQueueCount;
+            badge.style.display = 'flex';
+        }
+        const name = data.name || 'Guest';
+        success(`New guest waiting: ${name}`);
+    });
+}
+
+function _resetQueueBadge() {
+    _pendingQueueCount = 0;
+    const badge = document.getElementById('notif-badge');
+    if (badge) badge.style.display = 'none';
+}
+
 export function destroyTopbar() {
-    window.removeEventListener('hashchange', _updateTitle);
+    if (_hashChangeHandler) { window.removeEventListener('hashchange', _hashChangeHandler); _hashChangeHandler = null; }
     if (_wsClient) { _wsClient.close(); _wsClient = null; }
+    if (_queueWsClient) { _queueWsClient.close(); _queueWsClient = null; }
+    _pendingQueueCount = 0;
     _topbarEl = null;
 }

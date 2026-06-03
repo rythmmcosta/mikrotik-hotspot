@@ -59,3 +59,65 @@ async def change_password(
 ):
     await auth_service.change_password(db, current_user, body.current_password, body.new_password)
     return {"message": "Password changed successfully"}
+
+
+@router.post("/totp/setup")
+async def totp_setup(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await auth_service.setup_totp(db, current_user)
+
+
+@router.post("/totp/confirm")
+async def totp_confirm(
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    backup_codes = await auth_service.confirm_totp(db, current_user, body.get("code", ""))
+    return {"message": "TOTP enabled", "backup_codes": backup_codes}
+
+
+@router.post("/totp/verify")
+async def totp_verify(body: dict, db: AsyncSession = Depends(get_db)):
+    """Complete login when TOTP is required. Body: {totp_token, code}"""
+    from app.core.security import decode_token, create_access_token, create_refresh_token
+    from jose import JWTError
+    from sqlalchemy import select
+    try:
+        payload = decode_token(body.get("totp_token", ""))
+        if not payload.get("totp_pending"):
+            from app.core.exceptions import UnauthorizedException
+            raise UnauthorizedException("Invalid TOTP token")
+        user_id = int(payload["sub"])
+    except JWTError:
+        from app.core.exceptions import UnauthorizedException
+        raise UnauthorizedException("Invalid or expired TOTP token")
+
+    result = await db.execute(select(User).where(User.id == user_id, User.is_active == True))
+    user = result.scalar_one_or_none()
+    if not user:
+        from app.core.exceptions import UnauthorizedException
+        raise UnauthorizedException()
+
+    valid = await auth_service.verify_totp_code(user, body.get("code", ""))
+    if not valid:
+        from app.core.exceptions import UnauthorizedException
+        raise UnauthorizedException("Invalid TOTP code")
+
+    access_token = create_access_token({"sub": str(user.id), "role": user.role})
+    refresh_token = create_refresh_token({"sub": str(user.id), "role": user.role})
+    import datetime as _dt
+    user.last_login_at = _dt.datetime.now(_dt.timezone.utc)
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer", "requires_totp": False}
+
+
+@router.delete("/totp")
+async def totp_disable(
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    await auth_service.disable_totp(db, current_user, body.get("current_password", ""))
+    return {"message": "TOTP disabled"}

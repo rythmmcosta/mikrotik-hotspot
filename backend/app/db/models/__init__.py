@@ -12,9 +12,11 @@ from app.db.models.asset_metric import AssetMetric
 from app.db.models.browsing_log import BrowsingLog
 from app.db.models.usage_policy import UsagePolicy
 from app.db.models.policy_rule import PolicyRule
+from app.db.models.voucher import Voucher
 
 __all__ = [
     "User", "Employee", "Guest", "OtpLog", "AccessQueue",
     "Connection", "BandwidthProfile", "Setting", "AuditLog",
     "Asset", "AssetMetric", "BrowsingLog", "UsagePolicy", "PolicyRule",
+    "Voucher",
 ]

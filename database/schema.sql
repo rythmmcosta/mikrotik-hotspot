@@ -5,19 +5,22 @@ CREATE DATABASE IF NOT EXISTS hotspot_db CHARACTER SET utf8mb4 COLLATE utf8mb4_u
 USE hotspot_db;
 
 CREATE TABLE IF NOT EXISTS users (
-    id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    username         VARCHAR(64) NOT NULL UNIQUE,
-    email            VARCHAR(255) NOT NULL UNIQUE,
-    password_hash    VARCHAR(255) NOT NULL,
-    role             ENUM('admin','operator') NOT NULL DEFAULT 'operator',
-    is_active        BOOLEAN NOT NULL DEFAULT TRUE,
-    full_name        VARCHAR(255) NULL,
-    avatar_url       VARCHAR(512) NULL,
-    mobile           VARCHAR(20) NULL,
-    telegram_chat_id VARCHAR(64) NULL,
-    last_login_at    DATETIME NULL,
-    created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    username          VARCHAR(64) NOT NULL UNIQUE,
+    email             VARCHAR(255) NOT NULL UNIQUE,
+    password_hash     VARCHAR(255) NOT NULL,
+    role              ENUM('admin','operator') NOT NULL DEFAULT 'operator',
+    is_active         BOOLEAN NOT NULL DEFAULT TRUE,
+    full_name         VARCHAR(255) NULL,
+    avatar_url        VARCHAR(512) NULL,
+    mobile            VARCHAR(20) NULL,
+    telegram_chat_id  VARCHAR(64) NULL,
+    totp_secret       VARCHAR(64) NULL,
+    totp_enabled      BOOLEAN NOT NULL DEFAULT FALSE,
+    totp_backup_codes VARCHAR(512) NULL,
+    last_login_at     DATETIME NULL,
+    created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_email (email),
     INDEX idx_role  (role)
 );
@@ -55,6 +58,12 @@ CREATE TABLE IF NOT EXISTS employees (
     created_by           INT UNSIGNED NOT NULL,
     created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    quota_daily_mb       INT NULL,
+    quota_weekly_mb      INT NULL,
+    quota_monthly_mb     INT NULL,
+    bytes_used_today     INT NOT NULL DEFAULT 0,
+    bytes_used_week      INT NOT NULL DEFAULT 0,
+    bytes_used_month     INT NOT NULL DEFAULT 0,
     FOREIGN KEY (bandwidth_profile_id) REFERENCES bandwidth_profiles(id) ON DELETE SET NULL,
     FOREIGN KEY (created_by) REFERENCES users(id),
     INDEX idx_email  (email),
@@ -270,4 +279,21 @@ CREATE TABLE IF NOT EXISTS policy_rules (
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (policy_id) REFERENCES usage_policies(id) ON DELETE CASCADE,
     INDEX idx_policy (policy_id)
+);
+
+CREATE TABLE IF NOT EXISTS vouchers (
+    id                   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    code                 VARCHAR(20) NOT NULL UNIQUE,
+    description          VARCHAR(255) NULL,
+    max_uses             INT NOT NULL DEFAULT 1,
+    used_count           INT NOT NULL DEFAULT 0,
+    bandwidth_profile_id INT UNSIGNED NULL,
+    session_hours        INT NOT NULL DEFAULT 4,
+    expires_at           DATETIME NULL,
+    is_active            BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by           INT UNSIGNED NOT NULL,
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (bandwidth_profile_id) REFERENCES bandwidth_profiles(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id),
+    INDEX idx_code (code)
 );

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -107,3 +108,42 @@ async def terminate_guest(
     await audit_service.log_action(db, "guest.terminated", current_user, "guest", guest_id,
                                    None, get_client_ip(request))
     return guest
+
+
+class BulkApproveRequest(BaseModel):
+    guest_ids: list[int]
+    access_hours: int | None = None
+    bandwidth_profile_id: int | None = None
+
+
+class BulkRejectRequest(BaseModel):
+    guest_ids: list[int]
+    notes: str | None = None
+
+
+@router.post("/bulk-approve")
+async def bulk_approve(
+    body: BulkApproveRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_operator_or_admin),
+):
+    results = await guest_service.bulk_approve_guests(
+        db, body.guest_ids, current_user, body.bandwidth_profile_id, body.access_hours
+    )
+    for g in results:
+        await audit_service.log_action(db, "guest.bulk_approved", current_user, "guest", g.id, None, get_client_ip(request))
+    return {"approved": len(results), "ids": [g.id for g in results]}
+
+
+@router.post("/bulk-reject")
+async def bulk_reject(
+    body: BulkRejectRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_operator_or_admin),
+):
+    results = await guest_service.bulk_reject_guests(db, body.guest_ids, current_user, body.notes)
+    for g in results:
+        await audit_service.log_action(db, "guest.bulk_rejected", current_user, "guest", g.id, None, get_client_ip(request))
+    return {"rejected": len(results), "ids": [g.id for g in results]}

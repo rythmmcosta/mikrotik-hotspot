@@ -12,6 +12,10 @@ import { renderAssets } from './pages/admin/Assets.js';
 import { renderAssetDetail } from './pages/admin/AssetDetail.js';
 import { renderBrowsingLog } from './pages/admin/BrowsingLog.js';
 import { renderPolicies } from './pages/admin/Policies.js';
+import { renderBandwidth } from './pages/admin/Bandwidth.js';
+import { renderAnalytics } from './pages/admin/Analytics.js';
+import { renderSystemHealth } from './pages/admin/SystemHealth.js';
+import { renderVouchers } from './pages/admin/Vouchers.js';
 import { renderInterfaces } from './pages/admin/router/Interfaces.js';
 import { renderDHCP } from './pages/admin/router/DHCP.js';
 import { renderFirewall } from './pages/admin/router/Firewall.js';
@@ -31,6 +35,10 @@ const routes = {
     '/assets':               renderAssets,
     '/browsing':             renderBrowsingLog,
     '/policies':             renderPolicies,
+    '/bandwidth':            renderBandwidth,
+    '/analytics':            renderAnalytics,
+    '/system/health':        renderSystemHealth,
+    '/vouchers':             renderVouchers,
     '/settings':             renderSettings,
     '/audit':                renderAuditLog,
     '/router/interfaces':    renderInterfaces,
@@ -43,7 +51,8 @@ const routes = {
 };
 
 const ADMIN_ONLY = [
-    '/employees', '/settings', '/audit', '/policies',
+    '/employees', '/bandwidth', '/analytics', '/system/health', '/vouchers',
+    '/settings', '/audit', '/policies',
     '/router/interfaces', '/router/dhcp', '/router/firewall',
     '/router/system', '/router/hotspot', '/router/dns', '/router/queues',
 ];

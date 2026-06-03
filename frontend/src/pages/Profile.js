@@ -169,6 +169,14 @@ export async function renderProfile(container) {
                     </form>
                 </div>
             </div>
+
+            <!-- Two-Factor Auth card -->
+            <div class="card" id="totp-card">
+                <div class="card-header">
+                    <span><iconify-icon icon="tabler:shield-lock" width="14" style="vertical-align:middle;margin-right:4px"></iconify-icon> Two-Factor Authentication</span>
+                </div>
+                <div class="card-body" id="totp-body"></div>
+            </div>
         </div>
 
         <!-- Session info card -->
@@ -258,8 +266,138 @@ export async function renderProfile(container) {
         } catch (err) { error(err.message); }
     });
 
+    // TOTP card
+    _initTotpCard(body, !!user.totp_enabled);
+
     const cleanup = () => { destroyTopbar(); window.removeEventListener('hashchange', cleanup); };
     window.addEventListener('hashchange', cleanup, { once: true });
+}
+
+function _initTotpCard(body, enabled) {
+    const cardBody = body.querySelector('#totp-body');
+    if (!cardBody) return;
+
+    if (enabled) {
+        cardBody.innerHTML = `
+            <div class="alert alert-success" style="margin-bottom:14px;font-size:0.82rem">
+                <iconify-icon icon="tabler:shield-check" width="16" style="vertical-align:middle;margin-right:6px"></iconify-icon>
+                <strong>Active</strong> — Your account is protected with two-factor authentication.
+            </div>
+            <form id="totp-disable-form">
+                <div class="form-group">
+                    <label>Current Password (required to disable 2FA)</label>
+                    <input type="password" name="current_password" placeholder="••••••••" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" style="background:var(--accent-err,#e55)">
+                        <iconify-icon icon="tabler:shield-off" width="14" style="vertical-align:middle;margin-right:4px"></iconify-icon>
+                        Disable 2FA
+                    </button>
+                </div>
+            </form>
+        `;
+        cardBody.querySelector('#totp-disable-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pw = new FormData(e.target).get('current_password');
+            try {
+                await fetch('/api/v1/auth/totp', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authStore.getAccessToken()}`
+                    },
+                    body: JSON.stringify({ current_password: pw }),
+                }).then(async r => { if (!r.ok) { const d = await r.json(); throw new Error(d.detail || 'Failed'); } });
+                authStore.updateUser({ totp_enabled: false });
+                success('Two-factor authentication disabled');
+                _initTotpCard(body, false);
+            } catch (err) { error(err.message); }
+        });
+    } else {
+        cardBody.innerHTML = `
+            <div class="alert alert-info" style="margin-bottom:14px;font-size:0.78rem">
+                <iconify-icon icon="tabler:info-circle" width="16" style="vertical-align:middle;margin-right:6px"></iconify-icon>
+                Add an extra layer of security. Scan the QR code with Google Authenticator or any TOTP app.
+            </div>
+            <div id="totp-setup-area"></div>
+            <div class="form-actions">
+                <button class="btn btn-primary" id="totp-setup-btn">
+                    <iconify-icon icon="tabler:shield-plus" width="14" style="vertical-align:middle;margin-right:4px"></iconify-icon>
+                    Set Up 2FA
+                </button>
+            </div>
+        `;
+        cardBody.querySelector('#totp-setup-btn').addEventListener('click', async (e) => {
+            const btn = e.currentTarget;
+            btn.disabled = true;
+            btn.innerHTML = '<iconify-icon icon="tabler:loader" width="14" style="vertical-align:middle;margin-right:4px;animation:spin .8s linear infinite"></iconify-icon> Loading…';
+            try {
+                const data = await api.post('/auth/totp/setup', {});
+                _showTotpSetupForm(body, cardBody, data);
+            } catch (err) {
+                error(err.message);
+                btn.disabled = false;
+                btn.innerHTML = '<iconify-icon icon="tabler:shield-plus" width="14" style="vertical-align:middle;margin-right:4px"></iconify-icon> Set Up 2FA';
+            }
+        });
+    }
+}
+
+function _showTotpSetupForm(body, cardBody, { secret, qr_data_url }) {
+    cardBody.innerHTML = `
+        <div style="text-align:center;margin-bottom:16px">
+            <img src="${qr_data_url}" alt="QR Code"
+                 style="width:180px;height:180px;border:2px solid var(--border,#333);border-radius:8px;padding:4px;background:#fff">
+            <div style="margin-top:8px;font-size:0.72rem;color:var(--text-muted)">Scan with your authenticator app</div>
+            <div style="margin-top:6px;font-family:monospace;font-size:0.78rem;background:var(--bg-input,#1a1a2e);padding:8px 12px;border-radius:6px;word-break:break-all;color:var(--text-main)">${secret}</div>
+        </div>
+        <form id="totp-confirm-form">
+            <div class="form-group">
+                <label>Enter verification code from app</label>
+                <input type="text" name="code" inputmode="numeric" maxlength="6"
+                       placeholder="000000" autocomplete="one-time-code"
+                       style="text-align:center;font-size:1.2rem;letter-spacing:0.25em;font-family:monospace" required>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <iconify-icon icon="tabler:check" width="14" style="vertical-align:middle;margin-right:4px"></iconify-icon>
+                    Activate 2FA
+                </button>
+                <button type="button" class="btn btn-ghost" id="totp-cancel-btn">Cancel</button>
+            </div>
+        </form>
+    `;
+    setTimeout(() => cardBody.querySelector('[name=code]')?.focus(), 50);
+    cardBody.querySelector('#totp-cancel-btn').addEventListener('click', () => _initTotpCard(body, false));
+    cardBody.querySelector('#totp-confirm-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const code = new FormData(e.target).get('code');
+        try {
+            const result = await api.post('/auth/totp/confirm', { code });
+            authStore.updateUser({ totp_enabled: true });
+            success('Two-factor authentication enabled!');
+            _showTotpBackupCodes(body, cardBody, result.backup_codes || []);
+        } catch (err) { error(err.message); }
+    });
+}
+
+function _showTotpBackupCodes(body, cardBody, backupCodes) {
+    cardBody.innerHTML = `
+        <div class="alert alert-success" style="margin-bottom:14px;font-size:0.82rem">
+            <iconify-icon icon="tabler:shield-check" width="16" style="vertical-align:middle;margin-right:6px"></iconify-icon>
+            <strong>2FA is now active!</strong> Save these backup codes in a safe place.
+        </div>
+        <div style="background:var(--bg-input,#1a1a2e);border-radius:8px;padding:14px;margin-bottom:16px">
+            <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em">BACKUP CODES — each can be used once if you lose your device</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 20px">
+                ${backupCodes.map(c => `<code style="font-family:monospace;font-size:0.82rem;color:var(--text-main)">${c}</code>`).join('')}
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-primary" id="totp-done-btn">Done</button>
+        </div>
+    `;
+    cardBody.querySelector('#totp-done-btn').addEventListener('click', () => _initTotpCard(body, true));
 }
 
 function _detectStyle(avatarUrl, seed) {

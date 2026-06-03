@@ -41,4 +41,12 @@ class ApiClient {
     public static function get(string $path): array {
         return self::request('GET', $path);
     }
+
+    public static function getPortalSettings(): array {
+        $result = self::get('/settings/public/portal');
+        if (isset($result['error']) || isset($result['detail'])) {
+            return [];
+        }
+        return $result;
+    }
 }

@@ -31,6 +31,13 @@ class Employee(Base):
         DateTime, nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
+    quota_daily_mb: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quota_weekly_mb: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quota_monthly_mb: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    bytes_used_today: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    bytes_used_week: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    bytes_used_month: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
     bandwidth_profile: Mapped["BandwidthProfile | None"] = relationship("BandwidthProfile")
     creator: Mapped["User"] = relationship(
         "User", back_populates="employees_created", foreign_keys=[created_by]

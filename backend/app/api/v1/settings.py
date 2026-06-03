@@ -119,3 +119,10 @@ async def test_telegram_me(
         return {"success": False, "message": "No Telegram chat ID in your profile"}
     ok = await send_telegram(db, chat_id, f"✅ <b>HotspotMgr</b>\nHello {current_user.username}! Your Telegram notifications are working.")
     return {"success": ok, "message": "Message sent to your Telegram" if ok else "Failed to send Telegram message"}
+
+
+@router.get("/public/portal")
+async def get_portal_settings_public(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns portal branding settings without auth."""
+    rows = await settings_service.get_category(db, "portal")
+    return {s.key_name: s.value for s in rows}

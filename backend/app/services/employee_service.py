@@ -68,7 +68,9 @@ async def create_employee(
         employee.mikrotik_synced = False
 
     from app.services.notification_service import notify_admins
-    await notify_admins(db, f"👤 <b>New Employee Added</b>\n{full_name} ({email}) has been added by {created_by.username}.")
+    await notify_admins(db, "employee_created",
+        "👤 <b>New Employee Added</b>\n{name} ({email}) added by {admin}.",
+        name=full_name, email=email, admin=created_by.username)
 
     return employee
 
