@@ -10,6 +10,7 @@ api_router = APIRouter(prefix="/api/v1")
 
 api_router.include_router(auth.router)
 api_router.include_router(employees.router)
+api_router.include_router(blacklist.router)
 api_router.include_router(guests.router)
 api_router.include_router(otp.router)
 api_router.include_router(connections.router)
@@ -29,7 +30,6 @@ api_router.include_router(export.router)
 api_router.include_router(notification_templates.router)
 api_router.include_router(notifications_inbox.router)
 api_router.include_router(departments.router)
-api_router.include_router(blacklist.router)
 api_router.include_router(admin_sessions_api.router)
 
 # MikroTik management routes

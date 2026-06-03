@@ -1,6 +1,8 @@
 class RouterOSError(Exception):
     pass
 
+MikroTikError = RouterOSError
+
 
 class RouterOSConnectionError(RouterOSError):
     pass
