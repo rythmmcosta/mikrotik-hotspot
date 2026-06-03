@@ -107,6 +107,12 @@ export async function renderSettings(container) {
                 ${cat === 'sms'       ? `<button type="button" id="test-sms" class="btn btn-ghost"><iconify-icon icon="tabler:message" width="13" style="vertical-align:middle;margin-right:4px"></iconify-icon>Send Test SMS</button>` : ''}
                 ${cat === 'telegram'  ? `<button type="button" id="test-telegram" class="btn btn-ghost"><iconify-icon icon="tabler:brand-telegram" width="13" style="vertical-align:middle;margin-right:4px"></iconify-icon>Send Test Message</button>` : ''}
             `;
+            if (cat === 'mikrotik') {
+                const statusEl = document.createElement('div');
+                statusEl.id = 'mikrotik-test-status';
+                statusEl.style.cssText = 'margin-top:10px;padding:8px 12px;border-radius:6px;font-size:13px;display:none';
+                actions.appendChild(statusEl);
+            }
             form.appendChild(actions);
 
             form.addEventListener('submit', async (e) => {
@@ -124,9 +130,38 @@ export async function renderSettings(container) {
                 } catch (err) { error(err.message); }
             });
 
-            form.querySelector('#test-mikrotik')?.addEventListener('click', async () => {
-                try { const res = await api.post('/settings/mikrotik/test', {}); res.success ? success(res.message) : error(res.message); }
-                catch (err) { error(err.message); }
+            form.querySelector('#test-mikrotik')?.addEventListener('click', async (e) => {
+                const btn = e.currentTarget;
+                const statusEl = form.querySelector('#mikrotik-test-status');
+                btn.disabled = true;
+                btn.textContent = 'Testing…';
+                if (statusEl) { statusEl.style.display = 'none'; }
+                try {
+                    const res = await api.post('/settings/mikrotik/test', null);
+                    if (res.success) {
+                        success(res.message);
+                        if (statusEl) {
+                            statusEl.style.cssText = 'margin-top:10px;padding:8px 12px;border-radius:6px;font-size:13px;display:block;background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.3);color:#34d399';
+                            statusEl.textContent = '✓ ' + res.message;
+                        }
+                    } else {
+                        error(res.message);
+                        if (statusEl) {
+                            statusEl.style.cssText = 'margin-top:10px;padding:8px 12px;border-radius:6px;font-size:13px;display:block;background:rgba(248,113,113,.15);border:1px solid rgba(248,113,113,.3);color:#f87171';
+                            statusEl.textContent = '✗ ' + res.message;
+                        }
+                    }
+                } catch (err) {
+                    const msg = err.message || 'Connection failed';
+                    error(msg);
+                    if (statusEl) {
+                        statusEl.style.cssText = 'margin-top:10px;padding:8px 12px;border-radius:6px;font-size:13px;display:block;background:rgba(248,113,113,.15);border:1px solid rgba(248,113,113,.3);color:#f87171';
+                        statusEl.textContent = '✗ ' + msg;
+                    }
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<iconify-icon icon="tabler:plug-connected" width="13" style="vertical-align:middle;margin-right:4px"></iconify-icon>Test Connection';
+                }
             });
 
             form.querySelector('#test-smtp')?.addEventListener('click', async () => {
