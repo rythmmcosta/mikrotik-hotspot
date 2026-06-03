@@ -82,8 +82,8 @@ class MikroTikPool:
         async with self.connection() as api:
             def _do():
                 try:
-                    cmd = api(path)
-                    return list(cmd(**params) if params else cmd())
+                    # librouteros: api(path, **params) returns a generator directly
+                    return list(api(path, **params) if params else api(path))
                 except librouteros.exceptions.TrapError as exc:
                     raise RouterOSCommandError(str(exc), getattr(exc, "category", ""), getattr(exc, "detail", "")) from exc
             return await loop.run_in_executor(None, _do)
