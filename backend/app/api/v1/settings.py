@@ -56,16 +56,50 @@ async def update_category(
     current_user: User = Depends(require_admin),
 ):
     await settings_service.update_category(db, category, body.settings, current_user)
+
+    # Re-initialize MikroTik pool immediately when router settings change
+    if category == "mikrotik":
+        from app.services.settings_service import get_value
+        from app.mikrotik import client as mt_client
+        host = await get_value(db, "mikrotik", "host")
+        if host:
+            port = int(await get_value(db, "mikrotik", "port") or 8728)
+            username = await get_value(db, "mikrotik", "username") or "admin"
+            password = await get_value(db, "mikrotik", "password") or ""
+            use_ssl = (await get_value(db, "mikrotik", "use_ssl") or "false").lower() == "true"
+            await mt_client.close_pool()
+            mt_client.init_pool(host, port, username, password, use_ssl)
+
     return {"message": f"Settings for {category} updated"}
 
 
 @router.post("/mikrotik/test", response_model=TestConnectionResponse)
 async def test_mikrotik(db: AsyncSession = Depends(get_db), _: User = Depends(require_admin)):
+    """Test MikroTik connection using current DB settings (always fresh, no stale pool)."""
+    from app.services.settings_service import get_value
+    from app.mikrotik.client import MikroTikPool
+    from app.mikrotik.exceptions import RouterOSConnectionError
+
+    host = await get_value(db, "mikrotik", "host") or ""
+    if not host:
+        return {"success": False, "message": "No MikroTik host configured — save settings first"}
+
+    port = int(await get_value(db, "mikrotik", "port") or 8728)
+    username = await get_value(db, "mikrotik", "username") or "admin"
+    password = await get_value(db, "mikrotik", "password") or ""
+    use_ssl = (await get_value(db, "mikrotik", "use_ssl") or "false").lower() == "true"
+
     try:
-        from app.mikrotik.client import get_pool
-        pool = get_pool()
-        identity = await pool.call("/system/identity/print")
-        return {"success": True, "message": "Connected", "details": {"identity": identity[0].get("name", "")}}
+        # Create a temporary pool just for the test (doesn't affect global pool)
+        test_pool = MikroTikPool(host, port, username, password, use_ssl, size=1)
+        identity = await test_pool.call("/system/identity/print")
+        await test_pool.close()
+        name = identity[0].get("name", "unknown") if identity else "unknown"
+        # Also reinitialize the global pool with the verified credentials
+        from app.mikrotik import client as mt_client
+        await mt_client.close_pool()
+        mt_client.init_pool(host, port, username, password, use_ssl)
+        return {"success": True, "message": f"Connected to router: {name}", "details": {"identity": name, "host": host, "port": port}}
     except Exception as exc:
         return {"success": False, "message": str(exc)}
 
