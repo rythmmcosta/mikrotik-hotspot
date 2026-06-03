@@ -320,15 +320,60 @@ export async function renderDashboard(container) {
 
         const assetsData = await api.get('/assets').catch(() => []);
 
-        _setText('stat-sessions', stats.active_count ?? 0);
         _setText('stat-pending', queue.length ?? 0);
         _setText('stat-today', stats.total_sessions_today ?? 0);
         _setText('stat-assets', Array.isArray(assetsData) ? assetsData.length : 0);
 
         _renderQueuePreview(queue);
         _renderActivePreview(active);
-        if (sessionsChart) pushPoint(sessionsChart, stats.active_count ?? 0);
+
+        // Prefer live MikroTik session count over stale DB count
+        const dbSessions = stats.active_count ?? 0;
+        _setText('stat-sessions', dbSessions);
+        if (sessionsChart) pushPoint(sessionsChart, dbSessions);
     } catch { /* non-fatal */ }
+
+    // Initial router metrics via HTTP (fills gauges before first WS push arrives)
+    requestAnimationFrame(async () => {
+        try {
+            const [resources, routerSessions] = await Promise.all([
+                api.get('/mikrotik/system/resources'),
+                api.get('/mikrotik/hotspot/active').catch(() => []),
+            ]);
+
+            // CPU gauge
+            const cpu = parseFloat(resources['cpu-load'] ?? 0);
+            const cpuRing = document.getElementById('gauge-cpu-ring');
+            if (cpuRing) cpuRing.innerHTML = _gaugeRing(cpu, cpu > 80 ? '#f87171' : '#38bdf8');
+            const cpuPct = document.getElementById('gauge-cpu-pct');
+            if (cpuPct) { cpuPct.textContent = `${cpu.toFixed(0)}%`; cpuPct.style.color = cpu > 80 ? 'var(--accent-err)' : 'var(--accent-rx)'; }
+            const cpuLbl = document.getElementById('cpu-label');
+            if (cpuLbl) { cpuLbl.textContent = `${cpu.toFixed(1)}%`; cpuLbl.className = `badge ${cpu > 80 ? 'badge-red' : cpu > 60 ? 'badge-yellow' : 'badge-green'}`; }
+            if (cpuChart) pushPoint(cpuChart, cpu);
+
+            // RAM gauge
+            const totalMem = parseInt(resources['total-memory'] ?? 1);
+            const freeMem = parseInt(resources['free-memory'] ?? 0);
+            const ram = Math.round((totalMem - freeMem) / Math.max(totalMem, 1) * 100);
+            const ramRing = document.getElementById('gauge-ram-ring');
+            if (ramRing) ramRing.innerHTML = _gaugeRing(ram, ram > 85 ? '#f87171' : '#34d399');
+            const ramPct = document.getElementById('gauge-ram-pct');
+            if (ramPct) { ramPct.textContent = `${ram}%`; ramPct.style.color = ram > 85 ? 'var(--accent-err)' : 'var(--accent-tx)'; }
+
+            // Live session count from router
+            const liveCount = Array.isArray(routerSessions) ? routerSessions.length : 0;
+            _setText('stat-sessions', liveCount);
+            const connCountEl = document.getElementById('conn-count');
+            if (connCountEl) connCountEl.textContent = `${liveCount} active`;
+            if (sessionsChart) pushPoint(sessionsChart, liveCount);
+
+            // Update topbar gauges immediately too
+            const tvCpu = document.getElementById('gauge-cpu-val');
+            if (tvCpu) tvCpu.textContent = `${cpu.toFixed(0)}%`;
+            const tvRam = document.getElementById('gauge-ram-val');
+            if (tvRam) tvRam.textContent = `${ram}%`;
+        } catch { /* router not reachable — WS will fill in when ready */ }
+    });
 
     // Cleanup
     const cleanup = () => {

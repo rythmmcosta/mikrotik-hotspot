@@ -283,6 +283,17 @@ function _connectMetrics() {
         _setText('gauge-tx', tx);
         _setText('gauge-rx', rx);
     });
+
+    // Initial HTTP fetch so topbar shows values immediately (before first WS push)
+    api.get('/mikrotik/system/resources').then(r => {
+        if (!r) return;
+        const cpu = parseFloat(r['cpu-load'] ?? 0);
+        const totalMem = parseInt(r['total-memory'] ?? 1);
+        const freeMem = parseInt(r['free-memory'] ?? 0);
+        const ram = Math.round((totalMem - freeMem) / Math.max(totalMem, 1) * 100);
+        _setVal('gauge-cpu-val', `${cpu.toFixed(0)}%`, cpu, 80);
+        _setVal('gauge-ram-val', `${ram}%`, ram, 85);
+    }).catch(() => {});
 }
 
 function _setVal(id, text, value, warnAt) {
