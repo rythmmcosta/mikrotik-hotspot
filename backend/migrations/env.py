@@ -8,6 +8,12 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# Allow DATABASE_URL env var to override alembic.ini (uses pymysql sync driver)
+_env_url = os.environ.get("DATABASE_URL", "")
+if _env_url:
+    _sync_url = _env_url.replace("mysql+asyncmy://", "mysql+pymysql://")
+    config.set_main_option("sqlalchemy.url", _sync_url)
+
 target_metadata = None
 
 
