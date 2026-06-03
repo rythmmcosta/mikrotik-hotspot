@@ -4,31 +4,45 @@ import { api } from '../api/client.js';
 import { success } from './Toast.js';
 
 const PAGE_TITLES = {
-    '/dashboard':           'Dashboard',
-    '/guests/queue':        'Guest Queue',
-    '/connections/active':  'Active Connections',
-    '/connections/history': 'Connection History',
-    '/profile':             'My Profile',
-    '/employees':           'Employees',
-    '/assets':              'Office Assets',
-    '/browsing':            'Browsing Log',
-    '/policies':            'Usage Policies',
-    '/settings':            'Settings',
-    '/audit':               'Audit Log',
-    '/router/interfaces':   'Interfaces',
-    '/router/dhcp':         'DHCP',
-    '/router/firewall':     'Firewall',
-    '/router/dns':          'DNS',
-    '/router/queues':       'Queues',
-    '/router/hotspot':      'Hotspot Server',
-    '/router/system':       'System Resources',
+    '/dashboard':                  'Dashboard',
+    '/guests/queue':               'Guest Queue',
+    '/connections/active':         'Active Connections',
+    '/connections/history':        'Connection History',
+    '/profile':                    'My Profile',
+    '/employees':                  'Employees',
+    '/departments':                'Departments',
+    '/assets':                     'Office Assets',
+    '/browsing':                   'Browsing Log',
+    '/policies':                   'Usage Policies',
+    '/settings':                   'Settings',
+    '/audit':                      'Audit Log',
+    '/router/interfaces':          'Interfaces',
+    '/router/dhcp':                'DHCP',
+    '/router/firewall':            'Firewall',
+    '/router/dns':                 'DNS',
+    '/router/queues':              'Queues',
+    '/router/hotspot':             'Hotspot Server',
+    '/router/system':              'System Resources',
+    '/notification-templates':     'Notification Templates',
+    '/notifications':              'Notification Inbox',
+    '/guests/blacklist':           'Guest Blacklist',
 };
 
 let _wsClient = null;
 let _queueWsClient = null;
+let _notifWsClient = null;
 let _pendingQueueCount = 0;
+let _inboxUnreadCount = 0;
 let _topbarEl = null;
 let _hashChangeHandler = null;
+let _pwaInstallEvent = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _pwaInstallEvent = e;
+    const btn = document.getElementById('pwa-install-btn');
+    if (btn) btn.style.display = 'flex';
+});
 
 function _icon(name, size = 18) {
     return `<iconify-icon icon="${name}" width="${size}" height="${size}"></iconify-icon>`;
@@ -46,6 +60,9 @@ export function renderTopbar(container) {
     topbar.id = 'topbar';
     topbar.innerHTML = `
         <div class="topbar-left">
+            <button class="topbar-hamburger" id="sidebar-toggle" aria-label="Toggle menu">
+                ${_icon('tabler:menu-2', 20)}
+            </button>
             <span class="topbar-title" id="topbar-title">${title}</span>
         </div>
         <div class="topbar-right">
@@ -65,6 +82,11 @@ export function renderTopbar(container) {
                 <span class="gauge-value" id="gauge-rx">—</span>
             </div>
 
+            <!-- PWA install button -->
+            <button class="topbar-icon-btn" id="pwa-install-btn" title="Install App" style="display:${_pwaInstallEvent ? 'flex' : 'none'}">
+                ${_icon('tabler:download', 18)}
+            </button>
+
             <!-- Notification bell -->
             <div style="position:relative">
                 <button class="topbar-icon-btn" id="notif-btn" title="Notifications">
@@ -72,7 +94,10 @@ export function renderTopbar(container) {
                     <span class="notif-badge" id="notif-badge" style="display:none">0</span>
                 </button>
                 <div class="notif-panel" id="notif-panel">
-                    <div class="notif-panel-header">Recent Events</div>
+                    <div class="notif-panel-header">
+                        <span>Notifications</span>
+                        <a href="#/notifications" style="font-size:0.72rem;color:var(--accent-rx)">View all</a>
+                    </div>
                     <div id="notif-list"><div style="padding:12px;font-size:0.78rem;color:var(--text-muted)">Loading…</div></div>
                 </div>
             </div>
@@ -89,6 +114,35 @@ export function renderTopbar(container) {
     _topbarEl = topbar;
     container.appendChild(topbar);
 
+    // Hamburger sidebar toggle
+    const hamburger = topbar.querySelector('#sidebar-toggle');
+    if (hamburger) {
+        hamburger.addEventListener('click', () => {
+            const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
+            let overlay = document.querySelector('.sidebar-overlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'sidebar-overlay';
+                document.body.appendChild(overlay);
+            }
+            const isOpen = sidebar?.classList.contains('open');
+            sidebar?.classList.toggle('open', !isOpen);
+            overlay.classList.toggle('open', !isOpen);
+            overlay.onclick = () => { sidebar?.classList.remove('open'); overlay.classList.remove('open'); };
+        });
+    }
+
+    // PWA install button
+    const pwaBtn = topbar.querySelector('#pwa-install-btn');
+    if (pwaBtn) {
+        pwaBtn.addEventListener('click', async () => {
+            if (!_pwaInstallEvent) return;
+            _pwaInstallEvent.prompt();
+            const { outcome } = await _pwaInstallEvent.userChoice;
+            if (outcome === 'accepted') { pwaBtn.style.display = 'none'; _pwaInstallEvent = null; }
+        });
+    }
+
     // Notification panel
     const notifBtn = topbar.querySelector('#notif-btn');
     const notifPanel = topbar.querySelector('#notif-panel');
@@ -97,15 +151,17 @@ export function renderTopbar(container) {
         notifPanel.classList.toggle('open');
         if (notifPanel.classList.contains('open')) {
             _loadNotifications();
-            _resetQueueBadge();
+            _resetBadge();
         }
     });
     document.addEventListener('click', () => notifPanel?.classList.remove('open'));
 
-    // Reset badge when navigating to guest queue
+    // Reset badge when navigating to queue or notifications
     _hashChangeHandler = () => {
         _updateTitle();
-        if (window.location.hash === '#/guests/queue') _resetQueueBadge();
+        const hash = window.location.hash;
+        if (hash === '#/guests/queue') _resetBadge();
+        if (hash === '#/notifications') _resetBadge();
     };
     window.addEventListener('hashchange', _hashChangeHandler);
 
@@ -114,6 +170,12 @@ export function renderTopbar(container) {
 
     // Connect to queue WebSocket for live guest notifications
     _connectQueue();
+
+    // Load DB-backed unread notification count
+    _loadUnreadCount();
+
+    // Subscribe to notifications WebSocket room
+    _connectNotifications();
 
     return topbar;
 }
@@ -131,28 +193,69 @@ function _updateTitle() {
 
 async function _loadNotifications() {
     const listEl = document.getElementById('notif-list');
-    const badgeEl = document.getElementById('notif-badge');
     if (!listEl) return;
     try {
-        const data = await api.get('/audit?per_page=10&page=1');
-        const items = data.items || [];
-        if (!items.length) {
-            listEl.innerHTML = '<div class="empty-state" style="padding:16px">No recent events</div>';
+        const items = await api.get('/notifications?per_page=10');
+        const list = Array.isArray(items) ? items : (items.items || []);
+        if (!list.length) {
+            listEl.innerHTML = '<div class="empty-state" style="padding:16px">No notifications</div>';
             return;
         }
-        listEl.innerHTML = items.map(a => `
-            <div class="notif-item">
-                <span>${a.action || ''} ${a.resource_type ? '· ' + a.resource_type : ''}</span>
-                <small>${a.username || ''} · ${_timeAgo(a.created_at)}</small>
+        listEl.innerHTML = list.slice(0, 8).map(n => `
+            <div class="notif-item ${n.is_read ? '' : 'notif-item--unread'}" style="cursor:pointer" data-id="${n.id}">
+                <span style="font-weight:${n.is_read ? 400 : 600}">${n.title}</span>
+                <small>${_timeAgo(n.created_at)}</small>
             </div>
         `).join('');
-        if (badgeEl && items.length) {
-            badgeEl.textContent = items.length;
-            badgeEl.style.display = 'flex';
-        }
+        listEl.querySelectorAll('.notif-item').forEach(item => {
+            item.addEventListener('click', async () => {
+                const id = item.dataset.id;
+                if (!item.classList.contains('notif-item--unread')) return;
+                try { await api.put(`/notifications/${id}/read`, {}); item.classList.remove('notif-item--unread'); } catch {}
+            });
+        });
     } catch {
-        listEl.innerHTML = '<div class="notif-item" style="color:var(--text-muted)">Unavailable</div>';
+        // fallback to audit log
+        try {
+            const data = await api.get('/audit?per_page=8&page=1');
+            const items = data.items || [];
+            listEl.innerHTML = items.length
+                ? items.map(a => `<div class="notif-item"><span>${a.action || ''} ${a.resource_type ? '· ' + a.resource_type : ''}</span><small>${a.username || ''} · ${_timeAgo(a.created_at)}</small></div>`).join('')
+                : '<div class="notif-item" style="color:var(--text-muted)">No recent events</div>';
+        } catch {
+            listEl.innerHTML = '<div class="notif-item" style="color:var(--text-muted)">Unavailable</div>';
+        }
     }
+}
+
+async function _loadUnreadCount() {
+    try {
+        const data = await api.get('/notifications/unread-count');
+        const count = data.count ?? data.unread_count ?? 0;
+        _inboxUnreadCount = count;
+        _updateBadge();
+    } catch { /* ignore — badge stays at 0 */ }
+}
+
+function _updateBadge() {
+    const total = _pendingQueueCount + _inboxUnreadCount;
+    const badge = document.getElementById('notif-badge');
+    if (!badge) return;
+    if (total > 0) {
+        badge.textContent = total > 99 ? '99+' : String(total);
+        badge.style.display = 'flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function _connectNotifications() {
+    if (_notifWsClient) _notifWsClient.close();
+    _notifWsClient = createWSClient('notifications');
+    _notifWsClient.on('new_notification', () => {
+        _inboxUnreadCount++;
+        _updateBadge();
+    });
 }
 
 function _timeAgo(iso) {
@@ -210,26 +313,24 @@ function _connectQueue() {
     _queueWsClient.on('new_guest', (msg) => {
         const data = msg.data || msg;
         _pendingQueueCount++;
-        const badge = document.getElementById('notif-badge');
-        if (badge) {
-            badge.textContent = _pendingQueueCount;
-            badge.style.display = 'flex';
-        }
+        _updateBadge();
         const name = data.name || 'Guest';
         success(`New guest waiting: ${name}`);
     });
 }
 
-function _resetQueueBadge() {
+function _resetBadge() {
     _pendingQueueCount = 0;
-    const badge = document.getElementById('notif-badge');
-    if (badge) badge.style.display = 'none';
+    _inboxUnreadCount = 0;
+    _updateBadge();
 }
 
 export function destroyTopbar() {
     if (_hashChangeHandler) { window.removeEventListener('hashchange', _hashChangeHandler); _hashChangeHandler = null; }
     if (_wsClient) { _wsClient.close(); _wsClient = null; }
     if (_queueWsClient) { _queueWsClient.close(); _queueWsClient = null; }
+    if (_notifWsClient) { _notifWsClient.close(); _notifWsClient = null; }
     _pendingQueueCount = 0;
+    _inboxUnreadCount = 0;
     _topbarEl = null;
 }

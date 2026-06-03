@@ -55,3 +55,42 @@ export function Modal(contentOrOpts, opts = {}) {
     document.body.appendChild(overlay);
     return overlay;
 }
+
+// showModal(title, content, buttons) — flexible multi-button API
+let _currentModal = null;
+
+export function showModal(title, content, buttons = []) {
+    if (_currentModal) _currentModal.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    const footerBtns = buttons.map((b, i) => `<button class="btn ${b.class || 'btn-ghost'} modal-action-btn" data-idx="${i}">${b.label}</button>`).join('');
+
+    overlay.innerHTML = `
+        <div class="modal modal-dialog">
+            <div class="modal-header">
+                <h3>${title}</h3>
+                <button class="modal-close">✕</button>
+            </div>
+            <div class="modal-body">${content}</div>
+            ${footerBtns ? `<div class="modal-footer">${footerBtns}</div>` : ''}
+        </div>
+    `;
+
+    overlay.querySelector('.modal-close').addEventListener('click', closeModal);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+    overlay.querySelectorAll('.modal-action-btn').forEach(btn => {
+        const idx = parseInt(btn.dataset.idx);
+        btn.addEventListener('click', () => buttons[idx]?.action?.());
+    });
+
+    document.body.appendChild(overlay);
+    _currentModal = overlay;
+    return overlay;
+}
+
+export function closeModal() {
+    if (_currentModal) { _currentModal.remove(); _currentModal = null; }
+}

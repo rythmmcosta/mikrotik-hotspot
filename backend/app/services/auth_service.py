@@ -16,10 +16,22 @@ from app.schemas.auth import UpdateProfileRequest
 from jose import JWTError
 
 
-async def login(db: AsyncSession, username: str, password: str) -> dict:
+async def login(
+    db: AsyncSession,
+    username: str,
+    password: str,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> dict:
+    from app.db.models.admin_session import AdminSession
+
     result = await db.execute(select(User).where(User.username == username, User.is_active == True))
     user = result.scalar_one_or_none()
     if not user or not verify_password(password, user.password_hash):
+        # Log failed attempt only if user exists (user_id NOT NULL constraint)
+        if user:
+            session = AdminSession(user_id=user.id, ip_address=ip_address, user_agent=user_agent, success=False)
+            db.add(session)
         raise UnauthorizedException("Invalid username or password")
 
     user.last_login_at = datetime.now(timezone.utc)
@@ -35,6 +47,9 @@ async def login(db: AsyncSession, username: str, password: str) -> dict:
             "requires_totp": True,
             "totp_token": access_token,
         }
+
+    session = AdminSession(user_id=user.id, ip_address=ip_address, user_agent=user_agent, success=True)
+    db.add(session)
 
     access_token = create_access_token({"sub": str(user.id), "role": user.role})
     refresh_token = create_refresh_token({"sub": str(user.id), "role": user.role})

@@ -13,10 +13,17 @@ from app.db.models.browsing_log import BrowsingLog
 from app.db.models.usage_policy import UsagePolicy
 from app.db.models.policy_rule import PolicyRule
 from app.db.models.voucher import Voucher
+from app.db.models.notification_template import NotificationTemplate
+from app.db.models.notification import Notification
+from app.db.models.push_subscription import PushSubscription
+from app.db.models.department import Department
+from app.db.models.guest_blacklist import GuestBlacklist
+from app.db.models.admin_session import AdminSession
 
 __all__ = [
     "User", "Employee", "Guest", "OtpLog", "AccessQueue",
     "Connection", "BandwidthProfile", "Setting", "AuditLog",
     "Asset", "AssetMetric", "BrowsingLog", "UsagePolicy", "PolicyRule",
-    "Voucher",
+    "Voucher", "NotificationTemplate", "Notification", "PushSubscription",
+    "Department", "GuestBlacklist", "AdminSession",
 ]

@@ -141,7 +141,27 @@ async def send_telegram(db: AsyncSession, chat_id: str, message: str) -> bool:
         return False
 
 
-async def notify_admins(db: AsyncSession, template_key: str, default_message: str, **kwargs) -> None:
+async def send_by_event(db: AsyncSession, channel: str, event: str, recipient: str, **kwargs) -> bool:
+    """Find all enabled templates for (channel, event) and send to recipient."""
+    from app.services.template_service import get_enabled_templates, render_template
+    templates = await get_enabled_templates(db, channel, event)
+    if not templates:
+        return False
+    ok = False
+    for tmpl in templates:
+        body = render_template(tmpl.body, **kwargs)
+        if channel == "email":
+            subject = render_template(tmpl.subject or tmpl.label, **kwargs)
+            ok = await send_email(db, recipient, subject, body) or ok
+        elif channel == "sms":
+            ok = await send_sms(db, recipient, body) or ok
+        elif channel == "telegram":
+            ok = await send_telegram(db, recipient, body) or ok
+    return ok
+
+
+async def notify_admins(db: AsyncSession, event: str, default_message: str, **kwargs) -> None:
+    """Send Telegram notification to admin channel using enabled templates for this event."""
     try:
         enabled = (await get_value(db, "telegram", "enabled") or "false").lower() == "true"
         if not enabled:
@@ -149,8 +169,18 @@ async def notify_admins(db: AsyncSession, template_key: str, default_message: st
         chat_id = await get_value(db, "telegram", "default_chat_id") or ""
         if not chat_id:
             return
-        tmpl = await get_value(db, "notifications", f"telegram_{template_key}") or default_message
-        message = await _render_template(tmpl, **kwargs)
-        await send_telegram(db, chat_id, message)
+        # Try template table first (event maps to tg_{event} slug pattern)
+        from app.services.template_service import get_enabled_templates, render_template
+        templates = await get_enabled_templates(db, "telegram", event)
+        if templates:
+            for tmpl in templates:
+                message = render_template(tmpl.body, **kwargs)
+                await send_telegram(db, chat_id, message)
+        else:
+            # Fallback to default message with variable substitution
+            message = default_message
+            for k, v in kwargs.items():
+                message = message.replace(f"{{{k}}}", str(v or ""))
+            await send_telegram(db, chat_id, message)
     except Exception as exc:
         logger.debug("notify_admins skipped: %s", exc)

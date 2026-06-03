@@ -95,3 +95,87 @@ INSERT IGNORE INTO settings (category, key_name, value, is_encrypted, descriptio
 ('notifications', 'email_otp_subject', 'Your WiFi Access Code', FALSE, 'Subject line for OTP email'),
 ('notifications', 'email_otp_body', '<p>Your WiFi verification code is: <b style="font-size:24px">{otp}</b></p><p>This code expires in <b>{minutes} minutes</b>.</p><p>Do not share this code with anyone.</p>', FALSE, 'HTML body for OTP email. Variables: {otp} {minutes}'),
 ('notifications', 'sms_otp', 'Your WiFi access code: {otp}. Valid for {minutes} min. Do not share.', FALSE, 'SMS text for OTP. Variables: {otp} {minutes}');
+
+-- Phase 12: Operator user, more employees, guests, vouchers, departments
+INSERT IGNORE INTO users (username, email, password_hash, role, full_name) VALUES
+('operator', 'operator@company.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TiGnEKMEg3aswqm7Q1oG5YdCDq7O', 'operator', 'Network Operator');
+
+-- More bandwidth profiles
+INSERT IGNORE INTO bandwidth_profiles (name, description, rate_limit_rx, rate_limit_tx, is_default_employee, is_default_guest) VALUES
+('Guest Free', 'Free tier guest (2Mbps)', '2M', '2M', FALSE, FALSE),
+('Employee Premium', 'Premium employee (50Mbps)', '50M', '50M', FALSE, FALSE),
+('Unlimited', 'Unlimited bandwidth (management)', '0', '0', FALSE, FALSE);
+
+-- Sample employees (10)
+INSERT IGNORE INTO employees (full_name, email, hotspot_username, hotspot_password, status, notes) VALUES
+('Alice Rahman', 'alice@company.com', 'alice.rahman', 'Pass@2024', 'active', 'IT Department Lead'),
+('Bob Hossain', 'bob@company.com', 'bob.hossain', 'Pass@2024', 'active', 'Senior Developer'),
+('Carol Islam', 'carol@company.com', 'carol.islam', 'Pass@2024', 'active', 'Sales Manager'),
+('David Khan', 'david@company.com', 'david.khan', 'Pass@2024', 'active', 'HR Specialist'),
+('Eva Begum', 'eva@company.com', 'eva.begum', 'Pass@2024', 'active', 'Accountant'),
+('Frank Ahmed', 'frank@company.com', 'frank.ahmed', 'Pass@2024', 'suspended', 'On leave'),
+('Grace Akter', 'grace@company.com', 'grace.akter', 'Pass@2024', 'active', 'Marketing'),
+('Henry Chowdhury', 'henry@company.com', 'henry.chowdhury', 'Pass@2024', 'active', 'Operations'),
+('Irene Sultana', 'irene@company.com', 'irene.sultana', 'Pass@2024', 'active', 'Customer Support'),
+('James Mia', 'james@company.com', 'james.mia', 'Pass@2024', 'active', 'Intern');
+
+-- Sample guests (25 with various statuses)
+INSERT IGNORE INTO guests (full_name, email, mobile, status, approval_notes, hotspot_username, hotspot_password) VALUES
+('Rahim Uddin', 'rahim@gmail.com', '+8801711000001', 'approved', 'Regular visitor', 'guest_rahim001', 'GuestPass1'),
+('Sumaiya Khatun', 'sumaiya@gmail.com', '+8801711000002', 'approved', 'Client meeting', 'guest_sumaiya002', 'GuestPass2'),
+('Kamal Hossain', 'kamal@example.com', '+8801711000003', 'approved', NULL, 'guest_kamal003', 'GuestPass3'),
+('Fatema Begum', 'fatema@example.com', '+8801711000004', 'approved', 'Conference guest', 'guest_fatema004', 'GuestPass4'),
+('Arif Islam', 'arif@yahoo.com', '+8801711000005', 'approved', NULL, 'guest_arif005', 'GuestPass5'),
+('Nadia Rahman', 'nadia@outlook.com', '+8801711000006', 'approved', 'Vendor', 'guest_nadia006', 'GuestPass6'),
+('Sabbir Khan', 'sabbir@gmail.com', '+8801711000007', 'approved', NULL, 'guest_sabbir007', 'GuestPass7'),
+('Tahmina Akter', 'tahmina@example.com', '+8801711000008', 'approved', 'Training session', 'guest_tahmina008', 'GuestPass8'),
+('Rubel Ahmed', 'rubel@gmail.com', '+8801711000009', 'approved', NULL, 'guest_rubel009', 'GuestPass9'),
+('Sharmin Sultana', 'sharmin@example.com', '+8801711000010', 'approved', 'Board visitor', 'guest_sharmin010', 'GuestPass10'),
+('Mehedi Hasan', 'mehedi@gmail.com', '+8801711000011', 'pending_approval', NULL, NULL, NULL),
+('Roksana Parvin', 'roksana@yahoo.com', '+8801711000012', 'pending_approval', NULL, NULL, NULL),
+('Jahangir Alam', 'jahangir@gmail.com', '+8801711000013', 'pending_approval', NULL, NULL, NULL),
+('Shirina Begum', 'shirina@outlook.com', '+8801711000014', 'pending_approval', NULL, NULL, NULL),
+('Tanvir Hossain', 'tanvir@gmail.com', '+8801711000015', 'pending_approval', NULL, NULL, NULL),
+('Mitu Akter', 'mitu@gmail.com', '+8801711000016', 'pending_approval', NULL, NULL, NULL),
+('Nazrul Islam', 'nazrul@example.com', '+8801711000017', 'pending_approval', NULL, NULL, NULL),
+('Sadia Rahman', 'sadia@gmail.com', '+8801711000018', 'pending_approval', NULL, NULL, NULL),
+('Khalid Hossain', 'khalid@yahoo.com', '+8801711000019', 'rejected', 'Suspicious activity', NULL, NULL),
+('Parveen Akter', 'parveen@example.com', '+8801711000020', 'rejected', 'Incomplete information', NULL, NULL),
+('Imran Khan', 'imran@gmail.com', '+8801711000021', 'rejected', 'Outside office hours', NULL, NULL),
+('Shirin Akter', 'shirin@outlook.com', '+8801711000022', 'rejected', 'Duplicate request', NULL, NULL),
+('Milon Ahmed', 'milon@gmail.com', '+8801711000023', 'pending_otp', NULL, NULL, NULL),
+('Reshma Khatun', 'reshma@yahoo.com', '+8801711000024', 'pending_otp', NULL, NULL, NULL),
+('Towhid Islam', 'towhid@gmail.com', '+8801711000025', 'pending_otp', NULL, NULL, NULL);
+
+-- Sample vouchers (30)
+INSERT IGNORE INTO vouchers (code, description, max_uses, used_count, session_hours, is_active, created_by) VALUES
+('WIFI-CONF2024-A1', 'Conference 2024', 1, 0, 8, TRUE, 1),
+('WIFI-CONF2024-A2', 'Conference 2024', 1, 0, 8, TRUE, 1),
+('WIFI-CONF2024-A3', 'Conference 2024', 1, 0, 8, TRUE, 1),
+('WIFI-CONF2024-A4', 'Conference 2024', 1, 0, 8, TRUE, 1),
+('WIFI-CONF2024-A5', 'Conference 2024', 1, 0, 8, TRUE, 1),
+('WIFI-VISIT-B1', 'Visitor pass', 3, 1, 4, TRUE, 1),
+('WIFI-VISIT-B2', 'Visitor pass', 3, 0, 4, TRUE, 1),
+('WIFI-VISIT-B3', 'Visitor pass', 3, 2, 4, TRUE, 1),
+('WIFI-TRAIN-C1', 'Training session', 10, 5, 6, TRUE, 1),
+('WIFI-TRAIN-C2', 'Training session', 10, 0, 6, TRUE, 1),
+('WIFI-VIP-D1', 'VIP access', 1, 0, 24, TRUE, 1),
+('WIFI-VIP-D2', 'VIP access', 1, 0, 24, TRUE, 1),
+('WIFI-VIP-D3', 'VIP access', 1, 1, 24, FALSE, 1),
+('WIFI-DAY-E1', 'Day pass', 1, 0, 12, TRUE, 1),
+('WIFI-DAY-E2', 'Day pass', 1, 0, 12, TRUE, 1),
+('WIFI-DAY-E3', 'Day pass', 1, 1, 12, FALSE, 1),
+('WIFI-DAY-E4', 'Day pass', 1, 0, 12, TRUE, 1),
+('WIFI-DAY-E5', 'Day pass', 1, 0, 12, TRUE, 1),
+('WIFI-BULK-F1', 'Bulk batch', 5, 0, 4, TRUE, 1),
+('WIFI-BULK-F2', 'Bulk batch', 5, 3, 4, TRUE, 1),
+('WIFI-BULK-F3', 'Bulk batch', 5, 5, 4, FALSE, 1),
+('WIFI-WEEK-G1', 'Weekly pass', 1, 0, 168, TRUE, 1),
+('WIFI-WEEK-G2', 'Weekly pass', 1, 0, 168, TRUE, 1),
+('WIFI-TEST-H1', 'Test voucher', 0, 10, 2, TRUE, 1),
+('WIFI-MEET-I1', 'Board meeting', 1, 0, 8, TRUE, 1),
+('WIFI-MEET-I2', 'Board meeting', 1, 0, 8, TRUE, 1),
+('WIFI-MEET-I3', 'Board meeting', 1, 1, 8, FALSE, 1),
+('WIFI-PREM-J1', 'Premium 2-day', 1, 0, 48, TRUE, 1),
+('WIFI-PREM-J2', 'Premium 2-day', 1, 0, 48, TRUE, 1),
+('WIFI-PREM-J3', 'Premium 2-day', 1, 0, 48, TRUE, 1);

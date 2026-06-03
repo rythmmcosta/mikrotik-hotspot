@@ -39,6 +39,19 @@ def _make_guest_username(full_name: str, guest_id: int) -> str:
 async def register_guest(db: AsyncSession, full_name: str, email: str, mobile: str) -> Guest:
     await _validate_email_domain(db, email)
 
+    # Check blacklist
+    from app.db.models.guest_blacklist import GuestBlacklist
+    checks = []
+    if email:
+        checks.append((GuestBlacklist.type == "email", GuestBlacklist.value == email.lower()))
+    if mobile:
+        checks.append((GuestBlacklist.type == "mobile", GuestBlacklist.value == mobile))
+
+    for type_cond, val_cond in checks:
+        bl_result = await db.execute(select(GuestBlacklist).where(type_cond, val_cond))
+        if bl_result.scalars().first():
+            raise BadRequestException("Access denied. Please contact IT support.")
+
     guest = Guest(full_name=full_name, email=email, mobile=mobile, status="pending_otp")
     db.add(guest)
     await db.flush()

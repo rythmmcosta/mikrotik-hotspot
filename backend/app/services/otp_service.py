@@ -52,22 +52,25 @@ async def send_otp(db: AsyncSession, guest_id: int, target_type: str, target_val
     db.add(log)
     await db.flush()
 
-    otp_html = f"""
-    <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px">
-        <h2 style="color:#2563eb">WiFi Access Verification</h2>
-        <p>Your verification code is:</p>
-        <div style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#1e293b;
-                    background:#f1f5f9;padding:16px;text-align:center;border-radius:8px">
-            {code}
-        </div>
-        <p style="color:#64748b;font-size:14px">This code expires in {ttl_minutes} minutes.</p>
-    </div>
-    """
+    from app.services.template_service import get_enabled_templates, render_template
+    ttl_str = str(ttl_minutes)
 
     if channel == "email":
-        await send_email(db, target_value, "WiFi Access - Verification Code", otp_html)
+        templates = await get_enabled_templates(db, "email", "otp_verification")
+        if templates:
+            body = render_template(templates[0].body, otp=code, minutes=ttl_str, name="")
+            subject = render_template(templates[0].subject or "Your WiFi Access Code", otp=code, minutes=ttl_str)
+        else:
+            subject = "WiFi Access - Verification Code"
+            body = f"<p>Your WiFi code: <b style='font-size:24px'>{code}</b>. Expires in {ttl_minutes} min.</p>"
+        await send_email(db, target_value, subject, body)
     else:
-        await send_sms(db, target_value, f"Your WiFi verification code is: {code}. Valid for {ttl_minutes} minutes.")
+        templates = await get_enabled_templates(db, "sms", "otp_verification")
+        if templates:
+            msg = render_template(templates[0].body, otp=code, minutes=ttl_str)
+        else:
+            msg = f"Your WiFi verification code is: {code}. Valid for {ttl_minutes} minutes."
+        await send_sms(db, target_value, msg)
 
     return code  # Only returned in tests; not exposed via API
 
