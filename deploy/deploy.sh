@@ -37,28 +37,43 @@ echo -e "${NC}"
 
 # ── 1. System deps ───────────────────────────────────────────────────────────
 info "Checking system dependencies..."
-apt-get update -qq
-for pkg in python3 python3-pip python3-venv git curl nginx mysql-client; do
-  if ! dpkg -s "$pkg" &>/dev/null; then
-    info "Installing $pkg..."
-    apt-get install -y -qq "$pkg"
-  fi
-done
+DEBIAN_FRONTEND=noninteractive apt-get update -qq
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+  python3 python3-pip python3-venv git curl nginx \
+  default-mysql-client 2>/dev/null \
+  || DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+  python3 python3-pip python3-venv git curl nginx mysql-client
 ok "System dependencies ready"
 
 # ── 2. Clone / update repo ───────────────────────────────────────────────────
 info "Deploying code to $DEPLOY_DIR ..."
-mkdir -p "$DEPLOY_DIR"
+mkdir -p "$(dirname "$DEPLOY_DIR")"
+
+# Build auth URL if token provided
+if [ -n "${GH_TOKEN:-}" ]; then
+  AUTH_URL="https://${GH_TOKEN}@github.com/rythmmcosta/mikrotik-hotspot.git"
+else
+  AUTH_URL="$REPO_URL"
+fi
 
 if [ -d "$DEPLOY_DIR/.git" ]; then
-  info "Updating existing repo..."
+  info "Updating existing git repo..."
   cd "$DEPLOY_DIR"
+  # Update remote URL with token if available
+  git remote set-url origin "$AUTH_URL" 2>/dev/null || true
   git fetch origin
-  git checkout "$BRANCH"
-  git pull origin "$BRANCH"
+  git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH" "origin/$BRANCH"
+  git reset --hard "origin/$BRANCH"
+elif [ -d "$DEPLOY_DIR" ] && [ "$(ls -A "$DEPLOY_DIR" 2>/dev/null)" ]; then
+  info "Directory exists but is not a git repo — backing up and cloning fresh..."
+  BACKUP_DIR="${DEPLOY_DIR}_backup_$(date +%Y%m%d_%H%M%S)"
+  mv "$DEPLOY_DIR" "$BACKUP_DIR"
+  info "Old content backed up to $BACKUP_DIR"
+  git clone --branch "$BRANCH" --depth 1 "$AUTH_URL" "$DEPLOY_DIR"
+  cd "$DEPLOY_DIR"
 else
   info "Cloning repo..."
-  git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$DEPLOY_DIR"
+  git clone --branch "$BRANCH" --depth 1 "$AUTH_URL" "$DEPLOY_DIR"
   cd "$DEPLOY_DIR"
 fi
 ok "Code deployed to $DEPLOY_DIR"
@@ -440,7 +455,7 @@ ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/${DOMAIN} 2>/dev/null || true
 # Remove default if it exists
 rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
 
-nginx -t && systemctl reload nginx && ok "Nginx configured and reloaded" || warn "Nginx test failed — check config"
+nginx -t 2>&1 && systemctl reload nginx 2>/dev/null || systemctl start nginx && ok "Nginx configured and reloaded" || warn "Nginx config error — run: nginx -t"
 
 # ── 11. Final status ─────────────────────────────────────────────────────────
 echo ""
