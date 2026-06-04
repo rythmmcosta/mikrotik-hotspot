@@ -117,8 +117,20 @@ async def get_stats(db: AsyncSession) -> dict:
         select(func.count(func.distinct(Connection.user_id))).where(Connection.connected_at >= today_start)
     )
 
+    db_active = active_count.scalar() or 0
+
+    # Prefer live MikroTik count over stale DB count
+    live_count: int | None = None
+    try:
+        sessions = await hotspot_manager.list_active_sessions()
+        live_count = len(sessions)
+    except Exception:
+        pass
+
     return {
-        "active_count": active_count.scalar() or 0,
+        "active_count": live_count if live_count is not None else db_active,
+        "live_session_count": live_count,
+        "db_active_count": db_active,
         "total_sessions_today": today_sessions.scalar() or 0,
         "total_bytes_in": today_bytes_in.scalar() or 0,
         "total_bytes_out": today_bytes_out.scalar() or 0,

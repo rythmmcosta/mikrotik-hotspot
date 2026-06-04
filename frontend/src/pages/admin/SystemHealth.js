@@ -69,16 +69,17 @@ export async function renderSystemHealth(container) {
                 </div>
             `).join('');
 
+            const mikrotikDetails = services.mikrotik?.details;
             el.innerHTML = `
                 <div class="card" style="grid-column:1/-1">
-                    <div class="card-header"><h3 class="card-title">Server Resources</h3></div>
+                    <div class="card-header"><h3 class="card-title">Server Resources (This Machine)</h3></div>
                     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding-top:8px">
                         <div>
                             <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">CPU Usage</div>
                             ${_bar(system.cpu_percent, '#38bdf8')}
                         </div>
                         <div>
-                            <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">RAM Usage (${system.ram_used_mb} / ${system.ram_total_mb} MB)</div>
+                            <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">RAM (${system.ram_used_mb} / ${system.ram_total_mb} MB)</div>
                             ${_bar(system.ram_percent, '#34d399')}
                         </div>
                         <div>
@@ -89,6 +90,25 @@ export async function renderSystemHealth(container) {
                 </div>
 
                 ${serviceCards}
+
+                ${mikrotikDetails ? `
+                <div class="card" style="grid-column:1/-1">
+                    <div class="card-header"><h3 class="card-title">Router Details</h3></div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding-top:8px">
+                        <div class="stat-card" style="border:none;box-shadow:none">
+                            <div class="stat-label">Identity</div>
+                            <div class="stat-value sm">${mikrotikDetails.identity || '—'}</div>
+                        </div>
+                        <div class="stat-card" style="border:none;box-shadow:none">
+                            <div class="stat-label">RouterOS Version</div>
+                            <div class="stat-value sm">${mikrotikDetails.version || '—'}</div>
+                        </div>
+                        <div class="stat-card" style="border:none;box-shadow:none">
+                            <div class="stat-label">Router CPU Load</div>
+                            <div class="stat-value">${mikrotikDetails.cpu_load || '—'}</div>
+                        </div>
+                    </div>
+                </div>` : ''}
             `;
         } catch (err) {
             el.innerHTML = `<div class="card" style="grid-column:1/-1"><div class="alert alert-error">${err.message}</div></div>`;

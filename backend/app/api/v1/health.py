@@ -1,5 +1,3 @@
-import time
-
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,15 +30,27 @@ async def system_health(db: AsyncSession = Depends(get_db), _: User = Depends(re
     except Exception as e:
         services["redis"] = {"status": "error", "message": str(e)}
 
-    # MikroTik
+    # MikroTik — actually test with a live command
     try:
         from app.mikrotik.client import get_pool
+        from app.mikrotik.exceptions import RouterOSConnectionError
         pool = get_pool()
-        services["mikrotik"] = {"status": "ok", "message": "Pool initialized"}
-    except Exception as e:
+        result = await pool.call("/system/identity/print")
+        identity = result[0].get("name", "MikroTik") if result else "MikroTik"
+        res_result = await pool.call("/system/resource/print")
+        version = res_result[0].get("version", "") if res_result else ""
+        cpu = res_result[0].get("cpu-load", "0") if res_result else "0"
+        services["mikrotik"] = {
+            "status": "ok",
+            "message": f"Connected — {identity}",
+            "details": {"identity": identity, "version": version, "cpu_load": f"{cpu}%"},
+        }
+    except RouterOSConnectionError:
         services["mikrotik"] = {"status": "warning", "message": "Not connected or not configured"}
+    except Exception as e:
+        services["mikrotik"] = {"status": "error", "message": str(e)}
 
-    # System resources
+    # System resources (this server, not router)
     cpu = psutil.cpu_percent(interval=0.1)
     ram = psutil.virtual_memory()
     disk = psutil.disk_usage("/")

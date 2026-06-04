@@ -67,6 +67,30 @@ async def _metrics_loop() -> None:
         except Exception:
             pass
 
+        # Also broadcast live hotspot session count → 'connections' WS room
+        try:
+            pool = mt_client.get_pool()
+            sessions = await pool.call("/ip/hotspot/active/print")
+            session_count = len(sessions)
+            await ws_manager.broadcast("connections", {
+                "type": "sessions_update",
+                "count": session_count,
+                "sessions": [
+                    {
+                        "user": s.get("user", ""),
+                        "address": s.get("address", ""),
+                        "mac-address": s.get("mac-address", ""),
+                        "uptime": s.get("uptime", ""),
+                        "bytes-in": s.get("bytes-in", "0"),
+                        "bytes-out": s.get("bytes-out", "0"),
+                        ".id": s.get(".id", ""),
+                    }
+                    for s in sessions[:50]
+                ],
+            })
+        except Exception:
+            pass
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

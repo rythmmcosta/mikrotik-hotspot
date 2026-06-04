@@ -78,9 +78,17 @@ export async function renderAnalytics(container) {
         try {
             const data = await api.get('/analytics/overview');
             container.querySelector('#kpi-guests').textContent = data.guests.total;
-            container.querySelector('#kpi-active').textContent = data.connections.active;
             container.querySelector('#kpi-approved').textContent = data.guests.approved;
             container.querySelector('#kpi-domains').textContent = data.browsing.unique_domains_today;
+            // Use DB active count as initial value; live MikroTik fetch below will override
+            container.querySelector('#kpi-active').textContent = data.connections.active;
+        } catch {}
+
+        // Active sessions: prefer live MikroTik count over DB count
+        try {
+            const sessions = await api.get('/mikrotik/hotspot/active');
+            const liveCount = Array.isArray(sessions) ? sessions.length : 0;
+            container.querySelector('#kpi-active').textContent = liveCount;
         } catch {}
     }
 
