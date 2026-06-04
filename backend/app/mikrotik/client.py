@@ -2,8 +2,9 @@
 MikroTik RouterOS API connection pool.
 
 librouteros is synchronous; we run each call in a thread pool executor
-to avoid blocking FastAPI's async event loop. A semaphore limits pool
-concurrency to avoid overwhelming the router's API listener.
+to avoid blocking FastAPI's async event loop.  A semaphore limits the
+total number of concurrent connections; each _Conn tracks whether it is
+currently in use so concurrent callers never share the same API object.
 """
 
 import asyncio
@@ -27,6 +28,7 @@ class _Conn:
         self.api = api
         self.last_used = time.monotonic()
         self.is_healthy = True
+        self.in_use = False  # True while a caller holds this connection
 
 
 class MikroTikPool:
@@ -36,6 +38,7 @@ class MikroTikPool:
         self.username = username
         self.password = password
         self.ssl = ssl
+        self._size = size
         self._pool: list[_Conn] = []
         self._sem = asyncio.Semaphore(size)
         self._lock = asyncio.Lock()
@@ -54,20 +57,25 @@ class MikroTikPool:
             raise RouterOSConnectionError(f"Cannot connect to MikroTik at {self.host}:{self.port}: {exc}") from exc
 
     async def _get_conn(self) -> _Conn:
+        """Return a free (not in_use) healthy connection, creating one if needed."""
         async with self._lock:
+            # Prefer an existing free connection (avoids reconnect overhead)
             for c in self._pool:
-                if c.is_healthy:
+                if c.is_healthy and not c.in_use:
+                    c.in_use = True
                     c.last_used = time.monotonic()
                     return c
+            # No free connection — create a new one (semaphore already guards size)
             loop = asyncio.get_event_loop()
             api = await loop.run_in_executor(None, self._connect)
             conn = _Conn(api)
+            conn.in_use = True
             self._pool.append(conn)
             return conn
 
     @asynccontextmanager
     async def connection(self):
-        async with self._sem:
+        async with self._sem:  # At most `size` concurrent callers
             conn = await self._get_conn()
             try:
                 yield conn.api
@@ -76,6 +84,8 @@ class MikroTikPool:
                 async with self._lock:
                     self._pool = [c for c in self._pool if c is not conn]
                 raise RouterOSConnectionError(f"RouterOS connection lost: {exc}") from exc
+            finally:
+                conn.in_use = False  # Always release, even if an exception occurred
 
     async def call(self, path: str, **params) -> list[dict[str, Any]]:
         loop = asyncio.get_event_loop()

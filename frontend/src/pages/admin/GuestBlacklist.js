@@ -1,5 +1,5 @@
 import { renderSidebar } from '../../components/Sidebar.js';
-import { renderTopbar } from '../../components/Topbar.js';
+import { renderTopbar, destroyTopbar } from '../../components/Topbar.js';
 import { api } from '../../api/client.js';
 import { showModal, closeModal } from '../../components/Modal.js';
 import { success, error } from '../../components/Toast.js';
@@ -11,26 +11,35 @@ const TYPE_ICON  = { email: 'tabler:mail', mobile: 'tabler:phone', ip: 'tabler:n
 let _entries = [];
 
 export async function renderGuestBlacklist(container) {
-    container.innerHTML = '';
-    renderSidebar(container);
-    const main = document.createElement('div');
-    main.className = 'main-content';
-    main.innerHTML = `
-        <div class="page-header">
-            <h1>Guest Blacklist</h1>
-            <button class="btn btn-primary" id="add-blacklist">
-                <iconify-icon icon="tabler:plus"></iconify-icon> Add Entry
-            </button>
+    container.innerHTML = `
+        <div class="app-layout">
+            <div id="sidebar-mount"></div>
+            <div class="main-area">
+                <div id="topbar-mount"></div>
+                <main class="main-content">
+                    <div class="page-header">
+                        <h1>Guest Blacklist</h1>
+                        <button class="btn btn-primary" id="add-blacklist">
+                            <iconify-icon icon="tabler:plus"></iconify-icon> Add Entry
+                        </button>
+                    </div>
+                    <div id="bl-body"><div class="loading-spinner" style="margin:60px auto"></div></div>
+                </main>
+            </div>
         </div>
-        <div id="bl-body"><div class="loading-spinner" style="margin:60px auto"></div></div>
     `;
-    container.appendChild(main);
-    renderTopbar(main);
 
-    main.querySelector('#add-blacklist').addEventListener('click', _openAddModal);
+    renderSidebar(container.querySelector('#sidebar-mount'));
+    renderTopbar(container.querySelector('#topbar-mount'));
+
+    const main = container.querySelector('.main-content');
+    container.querySelector('#add-blacklist').addEventListener('click', _openAddModal);
 
     await _load(main);
     pageEnter(main);
+
+    const cleanup = () => { destroyTopbar(); window.removeEventListener('hashchange', cleanup); };
+    window.addEventListener('hashchange', cleanup, { once: true });
 }
 
 async function _load(main) {

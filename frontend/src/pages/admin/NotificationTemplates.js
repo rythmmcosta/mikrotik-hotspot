@@ -1,5 +1,5 @@
 import { renderSidebar } from '../../components/Sidebar.js';
-import { renderTopbar } from '../../components/Topbar.js';
+import { renderTopbar, destroyTopbar } from '../../components/Topbar.js';
 import { api } from '../../api/client.js';
 import { showModal, closeModal } from '../../components/Modal.js';
 import { success, error } from '../../components/Toast.js';
@@ -13,57 +13,67 @@ let _templates = [];
 let _filter = { channel: 'all', search: '' };
 
 export async function renderNotificationTemplates(container) {
-    container.innerHTML = '';
-    renderSidebar(container);
-    const main = document.createElement('div');
-    main.className = 'main-content';
-    main.innerHTML = `
-        <div class="page-header">
-            <h1>Notification Templates</h1>
-            <span class="badge" style="background:var(--accent-rx)20;color:var(--accent-rx);padding:4px 10px;border-radius:20px;font-size:0.75rem" id="tpl-count">Loading…</span>
-        </div>
-        <div class="card" style="margin-bottom:16px">
-            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-                <div class="tab-row" id="channel-tabs">
-                    ${['all','email','sms','telegram'].map(c => `
-                        <button class="tab-btn ${c==='all'?'active':''}" data-channel="${c}">${c==='all'?'All':CHANNEL_LABELS[c]}</button>
-                    `).join('')}
-                </div>
-                <input type="search" id="tpl-search" placeholder="Search templates…" class="form-input" style="flex:1;min-width:200px;max-width:320px">
+    container.innerHTML = `
+        <div class="app-layout">
+            <div id="sidebar-mount"></div>
+            <div class="main-area">
+                <div id="topbar-mount"></div>
+                <main class="main-content">
+                    <div class="page-header">
+                        <h1>Notification Templates</h1>
+                        <span class="badge" style="background:var(--accent-rx)20;color:var(--accent-rx);padding:4px 10px;border-radius:20px;font-size:0.75rem" id="tpl-count">Loading…</span>
+                    </div>
+                    <div class="card" style="margin-bottom:16px">
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+                            <div class="tab-row" id="channel-tabs">
+                                ${['all','email','sms','telegram'].map(c => `
+                                    <button class="tab-btn ${c==='all'?'active':''}" data-channel="${c}">${c==='all'?'All':CHANNEL_LABELS[c]}</button>
+                                `).join('')}
+                            </div>
+                            <input type="search" id="tpl-search" placeholder="Search templates…" class="form-input" style="flex:1;min-width:200px;max-width:320px">
+                        </div>
+                    </div>
+                    <div id="tpl-body"><div class="loading-spinner" style="margin:60px auto"></div></div>
+                </main>
             </div>
         </div>
-        <div id="tpl-body"><div class="loading-spinner" style="margin:60px auto"></div></div>
     `;
-    container.appendChild(main);
-    renderTopbar(main);
 
-    main.querySelector('#channel-tabs').addEventListener('click', e => {
+    renderSidebar(container.querySelector('#sidebar-mount'));
+    renderTopbar(container.querySelector('#topbar-mount'));
+
+    const main = container.querySelector('.main-content');
+
+    container.querySelector('#channel-tabs').addEventListener('click', e => {
         const btn = e.target.closest('[data-channel]');
         if (!btn) return;
-        main.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         _filter.channel = btn.dataset.channel;
-        _renderTable(main);
+        _renderTable(container);
     });
 
-    main.querySelector('#tpl-search').addEventListener('input', e => {
+    container.querySelector('#tpl-search').addEventListener('input', e => {
         _filter.search = e.target.value.toLowerCase();
-        _renderTable(main);
+        _renderTable(container);
     });
 
     try {
         _templates = await api.get('/notification-templates');
-        main.querySelector('#tpl-count').textContent = `${_templates.length} templates`;
-        _renderTable(main);
+        container.querySelector('#tpl-count').textContent = `${_templates.length} templates`;
+        _renderTable(container);
     } catch (e) {
-        main.querySelector('#tpl-body').innerHTML = `<div class="empty-state"><p>Failed to load templates</p></div>`;
+        container.querySelector('#tpl-body').innerHTML = `<div class="empty-state"><p>Failed to load templates</p></div>`;
     }
 
     pageEnter(main);
+
+    const cleanup = () => { destroyTopbar(); window.removeEventListener('hashchange', cleanup); };
+    window.addEventListener('hashchange', cleanup, { once: true });
 }
 
-function _renderTable(main) {
-    const body = main.querySelector('#tpl-body');
+function _renderTable(container) {
+    const body = container.querySelector('#tpl-body');
     const filtered = _templates.filter(t => {
         if (_filter.channel !== 'all' && t.channel !== _filter.channel) return false;
         if (_filter.search && !t.label.toLowerCase().includes(_filter.search) && !t.slug.includes(_filter.search) && !t.event.includes(_filter.search)) return false;

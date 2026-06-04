@@ -1,5 +1,5 @@
 import { renderSidebar } from '../../components/Sidebar.js';
-import { renderTopbar } from '../../components/Topbar.js';
+import { renderTopbar, destroyTopbar } from '../../components/Topbar.js';
 import { api } from '../../api/client.js';
 import { showModal, closeModal } from '../../components/Modal.js';
 import { success, error } from '../../components/Toast.js';
@@ -9,23 +9,29 @@ let _departments = [];
 let _profiles    = [];
 
 export async function renderDepartments(container) {
-    container.innerHTML = '';
-    renderSidebar(container);
-    const main = document.createElement('div');
-    main.className = 'main-content';
-    main.innerHTML = `
-        <div class="page-header">
-            <h1>Departments</h1>
-            <button class="btn btn-primary" id="add-dept">
-                <iconify-icon icon="tabler:plus"></iconify-icon> Add Department
-            </button>
+    container.innerHTML = `
+        <div class="app-layout">
+            <div id="sidebar-mount"></div>
+            <div class="main-area">
+                <div id="topbar-mount"></div>
+                <main class="main-content">
+                    <div class="page-header">
+                        <h1>Departments</h1>
+                        <button class="btn btn-primary" id="add-dept">
+                            <iconify-icon icon="tabler:plus"></iconify-icon> Add Department
+                        </button>
+                    </div>
+                    <div id="dept-body"><div class="loading-spinner" style="margin:60px auto"></div></div>
+                </main>
+            </div>
         </div>
-        <div id="dept-body"><div class="loading-spinner" style="margin:60px auto"></div></div>
     `;
-    container.appendChild(main);
-    renderTopbar(main);
 
-    main.querySelector('#add-dept').addEventListener('click', () => _openModal(null, main));
+    renderSidebar(container.querySelector('#sidebar-mount'));
+    renderTopbar(container.querySelector('#topbar-mount'));
+
+    const main = container.querySelector('.main-content');
+    container.querySelector('#add-dept').addEventListener('click', () => _openModal(null, main));
 
     const [depts, profs] = await Promise.all([
         api.get('/departments').catch(() => []),
@@ -35,6 +41,9 @@ export async function renderDepartments(container) {
     _profiles    = profs;
     _render(main);
     pageEnter(main);
+
+    const cleanup = () => { destroyTopbar(); window.removeEventListener('hashchange', cleanup); };
+    window.addEventListener('hashchange', cleanup, { once: true });
 }
 
 function _render(main) {

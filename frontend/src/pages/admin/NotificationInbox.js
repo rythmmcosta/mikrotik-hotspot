@@ -1,5 +1,5 @@
 import { renderSidebar } from '../../components/Sidebar.js';
-import { renderTopbar } from '../../components/Topbar.js';
+import { renderTopbar, destroyTopbar } from '../../components/Topbar.js';
 import { api } from '../../api/client.js';
 import { success, error } from '../../components/Toast.js';
 import { pageEnter, rowsIn } from '../../core/anim.js';
@@ -11,40 +11,47 @@ let _notifications = [];
 let _tab = 'all';
 
 export async function renderNotificationInbox(container) {
-    container.innerHTML = '';
-    renderSidebar(container);
-    const main = document.createElement('div');
-    main.className = 'main-content';
-    main.innerHTML = `
-        <div class="page-header">
-            <h1>Notification Inbox</h1>
-            <div style="display:flex;gap:8px">
-                <button class="btn btn-sm btn-ghost" id="mark-all-read">
-                    <iconify-icon icon="tabler:checks"></iconify-icon> Mark All Read
-                </button>
+    container.innerHTML = `
+        <div class="app-layout">
+            <div id="sidebar-mount"></div>
+            <div class="main-area">
+                <div id="topbar-mount"></div>
+                <main class="main-content">
+                    <div class="page-header">
+                        <h1>Notification Inbox</h1>
+                        <div style="display:flex;gap:8px">
+                            <button class="btn btn-sm btn-ghost" id="mark-all-read">
+                                <iconify-icon icon="tabler:checks"></iconify-icon> Mark All Read
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card" style="margin-bottom:16px">
+                        <div class="tab-row" id="inbox-tabs">
+                            <button class="tab-btn active" data-tab="all">All</button>
+                            <button class="tab-btn" data-tab="unread">Unread</button>
+                        </div>
+                    </div>
+                    <div id="inbox-body"><div class="loading-spinner" style="margin:60px auto"></div></div>
+                </main>
             </div>
         </div>
-        <div class="card" style="margin-bottom:16px">
-            <div class="tab-row" id="inbox-tabs">
-                <button class="tab-btn active" data-tab="all">All</button>
-                <button class="tab-btn" data-tab="unread">Unread</button>
-            </div>
-        </div>
-        <div id="inbox-body"><div class="loading-spinner" style="margin:60px auto"></div></div>
     `;
-    container.appendChild(main);
-    renderTopbar(main);
 
-    main.querySelector('#inbox-tabs').addEventListener('click', e => {
+    renderSidebar(container.querySelector('#sidebar-mount'));
+    renderTopbar(container.querySelector('#topbar-mount'));
+
+    const main = container.querySelector('.main-content');
+
+    container.querySelector('#inbox-tabs').addEventListener('click', e => {
         const btn = e.target.closest('[data-tab]');
         if (!btn) return;
-        main.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         _tab = btn.dataset.tab;
         _renderList(main);
     });
 
-    main.querySelector('#mark-all-read').addEventListener('click', async () => {
+    container.querySelector('#mark-all-read').addEventListener('click', async () => {
         try {
             await api.put('/notifications/read-all', {});
             _notifications.forEach(n => n.is_read = true);
@@ -55,6 +62,9 @@ export async function renderNotificationInbox(container) {
 
     await _load(main);
     pageEnter(main);
+
+    const cleanup = () => { destroyTopbar(); window.removeEventListener('hashchange', cleanup); };
+    window.addEventListener('hashchange', cleanup, { once: true });
 }
 
 async function _load(main) {
